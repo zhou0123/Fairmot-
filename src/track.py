@@ -213,6 +213,7 @@ if __name__ == '__main__':
                       PETS09-S2L2
                       TUD-Crossing
                       Venice-1'''
+        #seqs_str = '''ADL-Rundle-1'''
         data_root = os.path.join(opt.data_dir, 'MOT15/images/test')
     if opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
@@ -245,6 +246,7 @@ if __name__ == '__main__':
                       ADL-Rundle-8
                       ETH-Pedcross2
                       TUD-Stadtmitte'''
+        seqs_str = '''Venice-2'''
         data_root = os.path.join(opt.data_dir, 'MOT15/images/train')
     if opt.val_mot20:
         seqs_str = '''MOT20-01
