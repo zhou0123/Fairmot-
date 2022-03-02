@@ -181,7 +181,7 @@ class Detections_(object):
         self.opt=opt
         self.heatmap=heatmap
         self.features=features
-        self.tracks_features=[]
+        self.tracks_features=None
         self.track_index=[]
         self.nums=0
         self.W=0
@@ -198,7 +198,7 @@ class Detections_(object):
     def distribute_id(self,index,feature):
 
         if self.nums==0:
-            self.tracks_features.append(feature)
+            self.tracks_features=feature
             self.track_index.append(index)
             self.nums+=1
             return index,feature
@@ -218,7 +218,8 @@ class Detections_(object):
         h_,w_=index_max//self.opt.size,index_max%self.opt.size
 
         index_=index+(self.W*(h_-self.opt.size//2))+(w_-self.opt.size//2-1)
-
+        self.tracks_features.hstack(feature_[index_max])
+        self.track_index.append(index_)
         return index_,feature_[index_max]
 
 
