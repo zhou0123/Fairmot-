@@ -206,11 +206,11 @@ class Detections_(object):
         all_,scores=self.get_around_features(index)
         outs=[]
         for feature_,score_ in zip(all_,scores):
-            cos_d=cdist(feature_, self.features, 'cosine')
-            if max(cos_d)>opt.tr:
+            cost=np.maximum(0.0, cdist(feature_, self.features, 'cosine'))
+            if max(cos_d)<opt.tr:
                 outs.append(-1)
                 continue
-            cost = (1-np.maximum(0.0, cos_d))*score_  # Nomalized features
+            cost = cost*score_  
             outs.append(cost)
         
         index_max=outs.index(max(outs))
