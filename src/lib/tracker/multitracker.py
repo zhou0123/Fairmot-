@@ -218,9 +218,9 @@ class Detections_(object):
         h_,w_=index_max//self.opt.size,index_max%self.opt.size
 
         index_=index+(self.W*(h_-self.opt.size//2))+(w_-self.opt.size//2-1)
-        self.tracks_features.hstack(feature_[index_max])
+        self.tracks_features.hstack(all_[index_max])
         self.track_index.append(index_)
-        return index_,feature_[index_max]
+        return index_,all_[index_max]
 
 
 
