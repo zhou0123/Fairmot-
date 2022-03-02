@@ -22,6 +22,10 @@ from tracker import matching
 
 from .basetrack import BaseTrack, TrackState
 
+#最新的拓展
+from scipy.spatial.distance import cdist
+
+
 
 class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
@@ -166,6 +170,66 @@ class STrack(BaseTrack):
 
     def __repr__(self):
         return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
+
+
+class Detections_(object):
+    def __init__(self,opt,heatmap,features,frame_rate=30):
+        """
+        heatmap [B,C,H,W]
+        feature [B,C(ids),H,W]
+        """
+        self.opt=opt
+        self.heatmap=heatmap
+        self.features=features
+        self.tracks_features=[]
+        self.track_index=[]
+        self.nums=0
+        self.W=0
+        self.H=0
+    def get_around_features(self,index):
+        all_=[]
+        scores=[]
+        w,h=index%self.W,index//self.W
+        for i in range(self.opt.size):
+            for j in range(self.opt.size):
+                all_.append(self.features[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
+                scores.append(self.heatmap[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
+        return all_,scores
+    def distribute_id(self,index,feature):
+
+        if self.nums==0:
+            self.tracks_features.append(feature)
+            self.track_index.append(index)
+            self.nums+=1
+            return index,feature
+        B,C,self.H,self.W=self.heatmap.size()
+        all_,scores=self.get_around_features(index)
+        outs=[]
+        for feature_,score_ in zip(all_,scores):
+            cos_d=cdist(feature_, self.features, 'cosine')
+            if max(cos_d)>opt.tr:
+                outs.append(-1)
+                continue
+            cost = (1-np.maximum(0.0, cos_d))*score_  # Nomalized features
+            outs.append(cost)
+        
+        index_max=outs.index(max(outs))
+
+        h_,w_=index_max//self.opt.size,index_max%self.opt.size
+
+        index_=index+(self.W*(h_-self.opt.size//2))+(w_-self.opt.size//2-1)
+
+        return index_,feature_[index_max]
+
+
+
+
+        
+        
+        
+
+
+    
 
 
 class JDETracker(object):
