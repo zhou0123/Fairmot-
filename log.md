@@ -1,4 +1,5 @@
 1 尝试feature-id尽可能的不同
+2 feature-id中新加入的或者某个feature-id，与之对应的相似度最高的小于某个阈值，在备选的9宫格中选择最低的
 
 test : mot_15
 原本：
