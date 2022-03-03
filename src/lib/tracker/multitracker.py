@@ -195,9 +195,12 @@ class Detections_(object):
         w,h=index%self.W,index//self.W
         for i in range(self.opt.size):
             for j in range(self.opt.size):
-                all_.append(self.features[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
-                scores.append(self.heatmap[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
-                boxes.append(self.dets[(h-self.opt.size//2+i)*self.W+(w-self.opt.size//2+j),:])
+                h_index=torch.clip(h-self.opt.size//2+i, min=0, max=self.H-1)
+                w_index=torch.clip(h-self.opt.size//2+j, min=0, max=self.W-1)
+                all_.append(self.features[:,:,h_index,w_index])
+                scores.append(self.heatmap[:,:,h_index,w_index])
+                index_box=torch.clip((h-self.opt.size//2+i)*self.W+(w-self.opt.size//2+j), min=0, max=self.H*self.W-1)
+                boxes.append(self.dets[index_box,:])
         return all_,scores,boxes
     def distribute_id(self,index,feature,det):
         B,C,self.H,self.W=self.heatmap.shape
@@ -206,7 +209,7 @@ class Detections_(object):
             w,h=index%self.W,index//self.W
             s=self.heatmap[:,:,h,w]
             self.nums+=1
-            return feature.reshape(1,-1),np.concatenate((det,s[0]))
+            return feature,np.concatenate((det,s[0]))
         all_,scores,boxes=self.get_around_features_boxes(index)
         outs=[]
         for feature_,score_,det_ in zip(all_,scores,boxes):

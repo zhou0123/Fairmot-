@@ -267,7 +267,7 @@ if __name__ == '__main__':
     main(opt,
          data_root=data_root,
          seqs=seqs,
-         exp_name='MOT17_test_public_dla34',
+         exp_name='MOT15_orign',
          show_image=False,
          save_images=False,
          save_videos=False)
