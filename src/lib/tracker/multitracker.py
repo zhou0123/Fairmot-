@@ -181,8 +181,8 @@ class Detections_(object):
         feature [B,C(ids),H,W]
         """
         self.opt=opt
-        self.heatmap=heatmap
-        self.features=features
+        self.heatmap=heatmap.cpu().numpy()
+        self.features=features.cpu().numpy()
         self.dets=dets
         self.tracks_features=None
         self.nums=0
@@ -197,20 +197,24 @@ class Detections_(object):
             for j in range(self.opt.size):
                 all_.append(self.features[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
                 scores.append(self.heatmap[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
-                boxes.append(self.boxes[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
+                boxes.append(self.dets[(h-self.opt.size//2+i)*w+(w-self.opt.size//2+j),:])
         return all_,scores,boxes
     def distribute_id(self,index,feature,det):
-
         if self.nums==0:
-            self.tracks_features=feature
+            self.tracks_features=feature.reshape(1,-1)
             self.nums+=1
-            return det,feature
-        B,C,self.H,self.W=self.heatmap.size()
+            return feature,det
+        B,C,self.H,self.W=self.heatmap.shape
         all_,scores,boxes=self.get_around_features_boxes(index)
         outs=[]
         for feature_,score_,det_ in zip(all_,scores,boxes):
-            cost=np.maximum(0.0, cdist(feature_, self.features, 'cosine'))
-            if max(cos_d)<opt.tr or bbox_ious(det,det_)<0.9:
+            # print("feature_.shape",feature_.shape)
+            # print("self.tracks_features",self.tracks_features.shape)
+            cost=np.maximum(0.0, cdist(feature_, self.tracks_features, 'cosine'))
+            #print(bbox_ious(det.reshape(1,-1),np.maximum(0.0,det_).reshape(1,-1)))
+            det=np.ascontiguousarray(det.reshape(1,-1), dtype=np.float)
+            det_=np.ascontiguousarray(np.maximum(0.0,det_).reshape(1,-1), dtype=np.float)
+            if np.max(cost)<self.opt.diff_degree or bbox_ious(det,det_)<0.9:
                 outs.append(-1)
                 continue
             cost = cost*score_  
@@ -218,7 +222,7 @@ class Detections_(object):
         index_max=outs.index(max(outs))
         h_,w_=index_max//self.opt.size,index_max%self.opt.size
         index_=index+(self.W*(h_-self.opt.size//2))+(w_-self.opt.size//2-1)
-        self.tracks_features.hstack(all_[index_max])
+        self.tracks_features=np.vstack((self.tracks_features,all_[index_max]))
         return all_[index_max],boxes[index_max]
 
 class JDETracker(object):
@@ -273,6 +277,12 @@ class JDETracker(object):
                 keep_inds = (results[j][:, 4] >= thresh)
                 results[j] = results[j][keep_inds]
         return results
+    def merge_outputs_(self, detections):
+        results = {}
+        for j in range(1, self.opt.num_classes + 1):
+            results[j] = np.concatenate(
+                [detection[j] for detection in detections], axis=0).astype(np.float32)
+        return results
 
     def update(self, im_blob, img0):
         self.frame_id += 1
@@ -303,8 +313,7 @@ class JDETracker(object):
             #全部boxes
             w_,h_ = hm.size(2),hm.size(3)
             dets_all, _ = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=w_*h_)
-            dets_all=dets_all[:,:4]
-            
+
             id_feature = _tranpose_and_gather_feat(id_feature, inds)
             id_feature = id_feature.squeeze(0)
             id_feature = id_feature.cpu().numpy()
@@ -312,10 +321,26 @@ class JDETracker(object):
 
         dets = self.post_process(dets, meta)
         dets = self.merge_outputs([dets])[1]
-
+        
+        #add new 
+        dets_all = self.post_process(dets_all, meta)
+        dets_all = self.merge_outputs_([dets_all])[1][:,:4]
         remain_inds = dets[:, 4] > self.opt.conf_thres
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
+        """
+        这里采用我的方法
+        """
+        features=F.normalize(output['id'],dim=1)
+        #print("hm",hm.shape)
+        init=Detections_(self.opt,hm,features,dets_all)
+        FEATURES=[]
+        DETS=[]
+        for tlbr,f,index in zip(dets[:,:4],id_feature,inds[0][remain_inds]):
+
+            fea,de=init.distribute_id(index,f,tlbr)
+            FEATURES.append(fea)
+            DETS.append(de)
         # vis
         '''
         for i in range(0, dets.shape[0]):

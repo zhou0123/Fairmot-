@@ -118,6 +118,8 @@ class opts(object):
                              default='../videos/MOT16-03.mp4',
                              help='path to the input video')
     self.parser.add_argument('--output-format', type=str, default='video', help='video or text')
+    self.parser.add_argument('--size', type=int, default=3, help='size of find')
+    self.parser.add_argument('--diff_degree', type=float, default=0.9, help='size of find')
     self.parser.add_argument('--output-root', type=str, default='../demos', help='expected output root path')
 
     # mot
