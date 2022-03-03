@@ -43,6 +43,41 @@ def _topk(scores, K=40):
     topk_xs = _gather_feat(topk_xs.view(batch, -1, 1), topk_ind).view(batch, K)
 
     return topk_score, topk_inds, topk_clses, topk_ys, topk_xs
+def mot_decode_(heat,wh,reg=None, ltrb=False):
+    batch, cat, height, width = wh.size()
+    wh=wh.permute(0, 2, 3, 1).contiguous()
+    heat=heat.permute(0, 2, 3, 1).contiguous()
+
+    ys,xs=torch.meshgrid(torch.arange(height),torch.arange(width))
+    ys=ys.to("cuda")
+    xs=xs.to("cuda")
+    if reg is not None:
+        reg=reg.permute(0, 2, 3, 1).contiguous()
+        reg = reg.view(batch, -1, 2)
+        xs = xs.reshape(batch, -1, 1) + reg[:, :, 0:1]
+        ys = ys.reshape(batch, -1, 1) + reg[:, :, 1:2]
+    else:
+        xs = xs.reshape(batch, -1, 1) + 0.5
+        ys = ys.reshape(batch, -1, 1) + 0.5
+    if ltrb:
+        wh = wh.reshape(batch, -1, 4)
+    else:
+        wh = wh.reshape(batch, -1, 2)
+    scores = heat.view(batch, -1, 1)
+    clses=torch.zeros_like(scores)
+
+    if ltrb:
+        bboxes = torch.cat([xs - wh[..., 0:1],
+                            ys - wh[..., 1:2],
+                            xs + wh[..., 2:3],
+                            ys + wh[..., 3:4]], dim=2)
+    else:
+        bboxes = torch.cat([xs - wh[..., 0:1] / 2,
+                            ys - wh[..., 1:2] / 2,
+                            xs + wh[..., 0:1] / 2,
+                            ys + wh[..., 1:2] / 2], dim=2)
+    detections = torch.cat([bboxes, scores, clses], dim=2)
+    return detections
 
 def mot_decode(heat, wh, reg=None, ltrb=False, K=100):
     batch, cat, height, width = heat.size()

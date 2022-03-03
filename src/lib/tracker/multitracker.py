@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from models import *
-from models.decode import mot_decode
+from models.decode import mot_decode,mot_decode_
 from models.model import create_model, load_model
 from models.utils import _tranpose_and_gather_feat
 from tracking_utils.kalman_filter import KalmanFilter
@@ -197,7 +197,7 @@ class Detections_(object):
             for j in range(self.opt.size):
                 all_.append(self.features[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
                 scores.append(self.heatmap[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
-                boxes.append(self.dets[(h-self.opt.size//2+i)*w+(w-self.opt.size//2+j),:])
+                boxes.append(self.dets[(h-self.opt.size//2+i)*self.W+(w-self.opt.size//2+j),:])
         return all_,scores,boxes
     def distribute_id(self,index,feature,det):
         if self.nums==0:
@@ -208,20 +208,15 @@ class Detections_(object):
         all_,scores,boxes=self.get_around_features_boxes(index)
         outs=[]
         for feature_,score_,det_ in zip(all_,scores,boxes):
-            # print("feature_.shape",feature_.shape)
-            # print("self.tracks_features",self.tracks_features.shape)
             cost=np.maximum(0.0, cdist(feature_, self.tracks_features, 'cosine'))
-            #print(bbox_ious(det.reshape(1,-1),np.maximum(0.0,det_).reshape(1,-1)))
             det=np.ascontiguousarray(det.reshape(1,-1), dtype=np.float)
             det_=np.ascontiguousarray(np.maximum(0.0,det_).reshape(1,-1), dtype=np.float)
-            if np.max(cost)<self.opt.diff_degree or bbox_ious(det,det_)<0.9:
-                outs.append(-1)
-                continue
-            cost = cost*score_  
+            # if np.max(cost)<self.opt.diff_degree or bbox_ious(det,det_)<0.9:
+            #     outs.append(-1)
+            #     continue
+            cost = np.sum(cost*score_)
             outs.append(cost)
         index_max=outs.index(max(outs))
-        h_,w_=index_max//self.opt.size,index_max%self.opt.size
-        index_=index+(self.W*(h_-self.opt.size//2))+(w_-self.opt.size//2-1)
         self.tracks_features=np.vstack((self.tracks_features,all_[index_max]))
         return all_[index_max],boxes[index_max]
 
@@ -311,28 +306,26 @@ class JDETracker(object):
             reg = output['reg'] if self.opt.reg_offset else None
             dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
             #全部boxes
-            w_,h_ = hm.size(2),hm.size(3)
-            dets_all, _ = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=w_*h_)
+            dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
 
             id_feature = _tranpose_and_gather_feat(id_feature, inds)
             id_feature = id_feature.squeeze(0)
             id_feature = id_feature.cpu().numpy()
-            
-
         dets = self.post_process(dets, meta)
         dets = self.merge_outputs([dets])[1]
+        #dets=dets[0][:,:5].cpu().numpy()
+        remain_inds = dets[:, 4] > self.opt.conf_thres
+        dets = dets[remain_inds]
+        id_feature = id_feature[remain_inds]
         
         #add new 
         dets_all = self.post_process(dets_all, meta)
         dets_all = self.merge_outputs_([dets_all])[1][:,:4]
-        remain_inds = dets[:, 4] > self.opt.conf_thres
-        dets = dets[remain_inds]
-        id_feature = id_feature[remain_inds]
         """
         这里采用我的方法
         """
+        
         features=F.normalize(output['id'],dim=1)
-        #print("hm",hm.shape)
         init=Detections_(self.opt,hm,features,dets_all)
         FEATURES=[]
         DETS=[]
@@ -352,7 +345,6 @@ class JDETracker(object):
         cv2.waitKey(0)
         id0 = id0-1
         '''
-
         if len(dets) > 0:
             '''Detections'''
             detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
@@ -437,7 +429,6 @@ class JDETracker(object):
                 track.mark_removed()
                 removed_stracks.append(track)
 
-        # print('Ramained match {} s'.format(t4-t3))
 
         self.tracked_stracks = [t for t in self.tracked_stracks if t.state == TrackState.Tracked]
         self.tracked_stracks = joint_stracks(self.tracked_stracks, activated_starcks)
