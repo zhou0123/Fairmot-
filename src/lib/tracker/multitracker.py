@@ -24,6 +24,8 @@ from .basetrack import BaseTrack, TrackState
 
 #最新的拓展
 from scipy.spatial.distance import cdist
+from cython_bbox import bbox_overlaps as bbox_ious
+
 
 
 
@@ -173,7 +175,7 @@ class STrack(BaseTrack):
 
 
 class Detections_(object):
-    def __init__(self,opt,heatmap,features,frame_rate=30):
+    def __init__(self,opt,heatmap,features,dets,frame_rate=30):
         """
         heatmap [B,C,H,W]
         feature [B,C(ids),H,W]
@@ -181,57 +183,46 @@ class Detections_(object):
         self.opt=opt
         self.heatmap=heatmap
         self.features=features
+        self.dets=dets
         self.tracks_features=None
-        self.track_index=[]
         self.nums=0
         self.W=0
         self.H=0
-    def get_around_features(self,index):
+    def get_around_features_boxes(self,index):
         all_=[]
         scores=[]
+        boxes=[]
         w,h=index%self.W,index//self.W
         for i in range(self.opt.size):
             for j in range(self.opt.size):
                 all_.append(self.features[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
                 scores.append(self.heatmap[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
-        return all_,scores
-    def distribute_id(self,index,feature):
+                boxes.append(self.boxes[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
+
+        return all_,scores,boxes
+    def distribute_id(self,index,feature,det):
 
         if self.nums==0:
             self.tracks_features=feature
-            self.track_index.append(index)
             self.nums+=1
-            return index,feature
+            return det,feature
         B,C,self.H,self.W=self.heatmap.size()
-        all_,scores=self.get_around_features(index)
+        all_,scores,boxes=self.get_around_features_boxes(index)
         outs=[]
-        for feature_,score_ in zip(all_,scores):
+        for feature_,score_,det_ in zip(all_,scores,boxes):
             cost=np.maximum(0.0, cdist(feature_, self.features, 'cosine'))
-            if max(cos_d)<opt.tr:
+            if max(cos_d)<opt.tr or bbox_ious(det,det_)<0.9:
                 outs.append(-1)
                 continue
             cost = cost*score_  
             outs.append(cost)
         
         index_max=outs.index(max(outs))
-
         h_,w_=index_max//self.opt.size,index_max%self.opt.size
 
         index_=index+(self.W*(h_-self.opt.size//2))+(w_-self.opt.size//2-1)
         self.tracks_features.hstack(all_[index_max])
-        self.track_index.append(index_)
-        return index_,all_[index_max]
-
-
-
-
-        
-        
-        
-
-
-    
-
+        return all_[index_max],boxes[index_max]
 
 class JDETracker(object):
     def __init__(self, opt, frame_rate=30):
@@ -323,6 +314,10 @@ class JDETracker(object):
         remain_inds = dets[:, 4] > self.opt.conf_thres
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
+        print("inds",inds)
+        print("remain_inds",remain_inds)
+        print("inds.shape",inds.shape)
+        print("len(remain_inds)",len(remain_inds))
 
         # vis
         '''
