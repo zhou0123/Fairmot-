@@ -198,7 +198,6 @@ class Detections_(object):
                 all_.append(self.features[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
                 scores.append(self.heatmap[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
                 boxes.append(self.boxes[:,:,h-self.opt.size//2+i,w-self.opt.size//2+j])
-
         return all_,scores,boxes
     def distribute_id(self,index,feature,det):
 
@@ -216,10 +215,8 @@ class Detections_(object):
                 continue
             cost = cost*score_  
             outs.append(cost)
-        
         index_max=outs.index(max(outs))
         h_,w_=index_max//self.opt.size,index_max%self.opt.size
-
         index_=index+(self.W*(h_-self.opt.size//2))+(w_-self.opt.size//2-1)
         self.tracks_features.hstack(all_[index_max])
         return all_[index_max],boxes[index_max]
@@ -301,12 +298,17 @@ class JDETracker(object):
             wh = output['wh']
             id_feature = output['id']
             id_feature = F.normalize(id_feature, dim=1)
-
             reg = output['reg'] if self.opt.reg_offset else None
             dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
+            #全部boxes
+            w_,h_ = hm.size(2),hm.size(3)
+            dets_all, _ = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=w_*h_)
+            dets_all=dets_all[:,:4]
+            
             id_feature = _tranpose_and_gather_feat(id_feature, inds)
             id_feature = id_feature.squeeze(0)
             id_feature = id_feature.cpu().numpy()
+            
 
         dets = self.post_process(dets, meta)
         dets = self.merge_outputs([dets])[1]
@@ -314,11 +316,6 @@ class JDETracker(object):
         remain_inds = dets[:, 4] > self.opt.conf_thres
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
-        print("inds",inds)
-        print("remain_inds",remain_inds)
-        print("inds.shape",inds.shape)
-        print("len(remain_inds)",len(remain_inds))
-
         # vis
         '''
         for i in range(0, dets.shape[0]):

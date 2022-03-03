@@ -44,7 +44,6 @@ def _topk(scores, K=40):
 
     return topk_score, topk_inds, topk_clses, topk_ys, topk_xs
 
-
 def mot_decode(heat, wh, reg=None, ltrb=False, K=100):
     batch, cat, height, width = heat.size()
 
