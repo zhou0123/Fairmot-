@@ -200,11 +200,13 @@ class Detections_(object):
                 boxes.append(self.dets[(h-self.opt.size//2+i)*self.W+(w-self.opt.size//2+j),:])
         return all_,scores,boxes
     def distribute_id(self,index,feature,det):
+        B,C,self.H,self.W=self.heatmap.shape
         if self.nums==0:
             self.tracks_features=feature.reshape(1,-1)
+            w,h=index%self.W,index//self.W
+            s=self.heatmap[:,:,h,w]
             self.nums+=1
-            return feature,det
-        B,C,self.H,self.W=self.heatmap.shape
+            return feature.reshape(1,-1),np.concatenate((det,s[0]))
         all_,scores,boxes=self.get_around_features_boxes(index)
         outs=[]
         for feature_,score_,det_ in zip(all_,scores,boxes):
@@ -218,7 +220,8 @@ class Detections_(object):
             outs.append(cost)
         index_max=outs.index(max(outs))
         self.tracks_features=np.vstack((self.tracks_features,all_[index_max]))
-        return all_[index_max],boxes[index_max]
+        
+        return all_[index_max][0],np.concatenate((boxes[index_max],np.array(scores[index_max][0])))
 
 class JDETracker(object):
     def __init__(self, opt, frame_rate=30):
@@ -330,7 +333,6 @@ class JDETracker(object):
         FEATURES=[]
         DETS=[]
         for tlbr,f,index in zip(dets[:,:4],id_feature,inds[0][remain_inds]):
-
             fea,de=init.distribute_id(index,f,tlbr)
             FEATURES.append(fea)
             DETS.append(de)
@@ -346,9 +348,16 @@ class JDETracker(object):
         id0 = id0-1
         '''
         if len(dets) > 0:
+        
             '''Detections'''
             detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
+        # print("aaa"*10)
+        # print(FEATURES[0].shape)
+        # print(id_feature[0].shape)
+        # if len(DETS) > 0:
+        #     detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+        #                   (tlbrs, f) in zip(DETS, FEATURES)]
         else:
             detections = []
 
