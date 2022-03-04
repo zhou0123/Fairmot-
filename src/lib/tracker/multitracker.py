@@ -221,7 +221,7 @@ class Detections_(object):
                 continue
             cost = np.sum(cost*score_)
             outs.append(cost)
-        if smu(outs)==-9:
+        if sum(outs)==-9:
             self.tracks_features=np.vstack((self.tracks_features,feature))
             w,h=index%self.W,index//self.W
             s=self.heatmap[:,:,h,w]
