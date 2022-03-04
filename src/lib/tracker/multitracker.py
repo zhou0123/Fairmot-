@@ -214,13 +214,18 @@ class Detections_(object):
         outs=[]
         for feature_,score_,det_ in zip(all_,scores,boxes):
             cost=np.maximum(0.0, cdist(feature_, self.tracks_features, 'cosine'))
-            det=np.ascontiguousarray(det.reshape(1,-1), dtype=np.float)
+            det1=np.ascontiguousarray(det.reshape(1,-1), dtype=np.float)
             det_=np.ascontiguousarray(np.maximum(0.0,det_).reshape(1,-1), dtype=np.float)
-            # if np.max(cost)<self.opt.diff_degree or bbox_ious(det,det_)<0.9:
-            #     outs.append(-1)
-            #     continue
+            if np.max(cost)<self.opt.diff_degree or bbox_ious(det1,det_)<0.9:
+                outs.append(-1)
+                continue
             cost = np.sum(cost*score_)
             outs.append(cost)
+        if smu(outs)==-9:
+            self.tracks_features=np.vstack((self.tracks_features,feature))
+            w,h=index%self.W,index//self.W
+            s=self.heatmap[:,:,h,w]
+            return feature,np.concatenate((det,s[0]))
         index_max=outs.index(max(outs))
         self.tracks_features=np.vstack((self.tracks_features,all_[index_max]))
         
