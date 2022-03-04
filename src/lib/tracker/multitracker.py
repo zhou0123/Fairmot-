@@ -355,17 +355,15 @@ class JDETracker(object):
         cv2.waitKey(0)
         id0 = id0-1
         '''
-        if len(dets) > 0:
+        # if len(dets) > 0:
         
-            '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
-                          (tlbrs, f) in zip(dets[:, :5], id_feature)]
-        # print("aaa"*10)
-        # print(FEATURES[0].shape)
-        # print(id_feature[0].shape)
-        # if len(DETS) > 0:
+        #     '''Detections'''
         #     detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
-        #                   (tlbrs, f) in zip(DETS, FEATURES)]
+        #                   (tlbrs, f) in zip(dets[:, :5], id_feature)]
+       
+        if len(DETS) > 0:
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+                          (tlbrs, f) in zip(DETS, FEATURES)]
         else:
             detections = []
 
