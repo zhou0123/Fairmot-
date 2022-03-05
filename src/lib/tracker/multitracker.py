@@ -231,7 +231,7 @@ class Detections_(object):
         
         return all_[index_max][0],np.concatenate((boxes[index_max],np.array(scores[index_max][0])))
 class check_cos(object):
-    def __init__(self,opt,heat,boxes,tracks_features,features):
+    def __init__(self,opt,heat,boxes,tracks_features):
         self.opt=opt
         self.heat=heat
         self.boxes=boxes
@@ -240,9 +240,10 @@ class check_cos(object):
         self.num=0
         self.H,self.W=heat.size(2),heat.size(3)
     def check_and_revise(self,feature,ind,det):
+        s=self.heat[:,ind%self.W,ind//self.W]
         if self.nums==0:
             self.features=feature.reshape(1,-1)
-            return feature,det
+            return feature,np.concatenate((det,s[0]))
 
         cost=np.min(cdist(feature,self.features, 'cosine'))
         w,h=ind%self.W,ind//self.W
@@ -250,6 +251,7 @@ class check_cos(object):
             costs=[]
             all_=[]
             boxes=[]
+            scores=[]
             for i in range(self.opt.size):
                 for j in range(self.opt.size):
 
@@ -257,6 +259,7 @@ class check_cos(object):
                     w_index=torch.clip(h-self.opt.size//2+j, min=0, max=self.W-1)
                     f=self.tracks_features[:,:,h_index,w_index]
                     all_.append(f)
+                    scores.append(self.heat[:,:,h_index,w_index])
                     index_box=torch.clip((h-self.opt.size//2+i)*self.W+(w-self.opt.size//2+j), min=0, max=self.H*self.W-1)
                     boxes.append(self.dets[index_box,:])
                     
@@ -269,11 +272,11 @@ class check_cos(object):
             
             index_=costs.index(max(costs))
             self.features=np.vstack((self.features,all_[index_]))
-            return all_[index_],boxes[index_]
+            return all_[index_],np.concatenate((boxes[index_],np.array(scores[index_][0])))
         
         self.features=np.vstack((self.features,feature))
 
-        return feature,det
+        return feature,np.concatenate((det,s[0]))
 class JDETracker(object):
     def __init__(self, opt, frame_rate=30):
         self.opt = opt
@@ -525,10 +528,24 @@ class JDETracker(object):
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
         #new:所有boxes
+        #feature_id 的初始化
+        if self.frame_id==1:
+            dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
+            dets_all = self.post_process(dets_all, meta)
+            dets_all = self.merge_outputs_([dets_all])[1][:,:4]
+            
+            tracks_features=F.normalize(output['id'], dim=1)
+            check = check_cos(self.opt,hm,dets_all,tracks_features)
 
-        dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
-        dets_all = self.post_process(dets_all, meta)
-        dets_all = self.merge_outputs_([dets_all])[1][:,:4]
+
+            for tlbr,f,index in zip(dets[:,:4],id_feature,inds[0][remain_inds]):
+                fea,de=check.check_and_revise(f,index,tlbr)
+                FEATURES.append(fea)
+                DETS.append(de)
+            
+            id_feature=FEATURES
+            dets=DETS
+
 
         # vis
         '''
