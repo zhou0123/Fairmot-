@@ -595,7 +595,19 @@ class JDETracker(object):
             #strack.predict()
         STrack.multi_predict(strack_pool)
 
-        #这里加入优先级最高的算法
+        #这里加入优先级最高的算法:
+        strack_pool_features=np.asarray([track.smooth_feat for track in tracks], dtype=np.float)
+        for i in range(feature_id):
+
+            fea_s=np.array([f[i] for f in id_features])
+            ds=cdist(fea_s,strack_pool_features,"cosine")
+            
+            h,w=np.where(np.min(ds)==ds)
+
+            
+
+
+
         
 
 
