@@ -25,6 +25,17 @@ def _tranpose_and_gather_feat(feat, ind):
     feat = _gather_feat(feat, ind)
     return feat
 
+
+def _tranpose_and_gather_feat_expand(feat, ind, bias=(0, 0)):
+    maxInd = feat.size(2) * feat.size(3)
+    ind = ind + bias[0] * feat.size(3) + bias[1]
+    ind = torch.clip(ind, min=0, max=maxInd-1)
+
+    feat = feat.permute(0, 2, 3, 1).contiguous()
+    feat = feat.view(feat.size(0), -1, feat.size(3))
+    feat = _gather_feat(feat, ind)
+    return feat
+
 def flip_tensor(x):
     return torch.flip(x, [3])
     # tmp = x.detach().cpu().numpy()[..., ::-1].copy()

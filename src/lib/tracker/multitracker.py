@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from models import *
 from models.decode import mot_decode,mot_decode_
 from models.model import create_model, load_model
-from models.utils import _tranpose_and_gather_feat
+from models.utils import _tranpose_and_gather_feat,_tranpose_and_gather_feat_expand
 from tracking_utils.kalman_filter import KalmanFilter
 from tracking_utils.log import logger
 from tracking_utils.utils import *
@@ -517,16 +517,25 @@ class JDETracker(object):
 
             reg = output['reg'] if self.opt.reg_offset else None
             dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
+            id_features = []
+                for i in range(3):
+                    for j in range(3):
+                        id_feature_exp = _tranpose_and_gather_feat_expand(id_feature, inds, bias=(i - 1, j - 1)).squeeze(0).cpu().numpy()
+                        id_features.append(id_feature_exp)
             id_feature = _tranpose_and_gather_feat(id_feature, inds)
             id_feature = id_feature.squeeze(0)
             id_feature = id_feature.cpu().numpy()
 
         dets = self.post_process(dets, meta)
         dets = self.merge_outputs([dets])[1]
+        
 
         remain_inds = dets[:, 4] > self.opt.conf_thres
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
+
+        for i in range(len(id_features)):
+            id_features[i] = id_features[i][remain_inds]
         #new:所有boxes
         #feature_id 的初始化
         if self.frame_id==1:
@@ -545,6 +554,10 @@ class JDETracker(object):
             
             id_feature=FEATURES
             dets=DETS
+        
+
+        
+        
 
 
         # vis
@@ -581,6 +594,11 @@ class JDETracker(object):
         #for strack in strack_pool:
             #strack.predict()
         STrack.multi_predict(strack_pool)
+
+        #这里加入优先级最高的算法
+        
+
+
         dists = matching.embedding_distance(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
