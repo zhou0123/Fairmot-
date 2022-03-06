@@ -597,18 +597,61 @@ class JDETracker(object):
 
         #这里加入优先级最高的算法:
         strack_pool_features=np.asarray([track.smooth_feat for track in tracks], dtype=np.float)
+        record_strack={}
+        record_loc={}
         for i in range(feature_id):
 
             fea_s=np.array([f[i] for f in id_features])
             ds=cdist(fea_s,strack_pool_features,"cosine")
             
-            h,w=np.where(np.min(ds)==ds)
+            min_=np.min(ds)
+            if min_<0.5:
+                h,w=np.where(min_==ds)
+                if w in record_strack:
+                    record_strack[w]= -1
+                    record_loc[w]=h
+                else:
+                    record_strack[w]=i
+                    record_loc[w]=h
+  
+        keys=[]
+        locs=[]
+        for key in record_strack.keys():
+            #key 是 old
 
-            
+            if record_strack[key] != -1:
 
+                num = record_loc[key]
+                loc = record_strack[key]
+                if num == 4:
 
+                    track = strack_pool[key]
+                    det = detections[loc]
+                    keys.append(key)
+                    locs.append(loc)
+                    if track.state == TrackState.Tracked:
+                        track.update(detections[idet], self.frame_id)
+                        activated_starcks.append(track)
+                    else:
+                        track.re_activate(det, self.frame_id, new_id=False)
+                        refind_stracks.append(track)
+                else:
+                    
+                    #如果不是最中心的位置，则不会更新
+                    track = strack_pool[key]
+                    det = detections[loc]
 
-        
+                    keys.append(key)
+                    locs.append(loc)
+                    if track.state == TrackState.Tracked:
+                        track.update(det, self.frame_id,update_feature=False)
+                        activated_starcks.append(track)
+                    else:
+                        track.re_activate(det, self.frame_id, new_id=False)
+                        refind_stracks.append(track)
+
+        strack_pool=np.delete(np.array(strack_pool),keys).tolist()
+        detections=np.delete(np.array(detections),locs).tolist()
 
 
         dists = matching.embedding_distance(strack_pool, detections)
