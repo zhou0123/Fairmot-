@@ -545,8 +545,6 @@ class JDETracker(object):
             
             tracks_features=F.normalize(output['id'], dim=1)
             check = check_cos(self.opt,hm,dets_all,tracks_features)
-
-
             for tlbr,f,index in zip(dets[:,:4],id_feature,inds[0][remain_inds]):
                 fea,de=check.check_and_revise(f,index,tlbr)
                 FEATURES.append(fea)
@@ -554,12 +552,6 @@ class JDETracker(object):
             
             id_feature=FEATURES
             dets=DETS
-        
-
-        
-        
-
-
         # vis
         '''
         for i in range(0, dets.shape[0]):
@@ -596,7 +588,7 @@ class JDETracker(object):
         STrack.multi_predict(strack_pool)
 
         #这里加入优先级最高的算法:
-        strack_pool_features=np.asarray([track.smooth_feat for track in tracks], dtype=np.float)
+        strack_pool_features=np.asarray([track.smooth_feat for track in strack_pool], dtype=np.float)
         record_strack={}
         record_loc={}
         for i in range(feature_id):
@@ -636,11 +628,9 @@ class JDETracker(object):
                         track.re_activate(det, self.frame_id, new_id=False)
                         refind_stracks.append(track)
                 else:
-                    
                     #如果不是最中心的位置，则不会更新
                     track = strack_pool[key]
                     det = detections[loc]
-
                     keys.append(key)
                     locs.append(loc)
                     if track.state == TrackState.Tracked:
