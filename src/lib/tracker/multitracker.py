@@ -233,19 +233,19 @@ class Detections_(object):
 class check_cos(object):
     def __init__(self,opt,heat,boxes,tracks_features):
         self.opt=opt
-        self.heat=heat
+        self.heat=heat.cpu().numpy()
         self.boxes=boxes
-        self.tracks_features=tracks_features
+        self.tracks_features=tracks_features.cpu().numpy()
         self.features=None
         self.num=0
         self.H,self.W=heat.size(2),heat.size(3)
     def check_and_revise(self,feature,ind,det):
-        s=self.heat[:,ind%self.W,ind//self.W]
-        if self.nums==0:
+        s=self.heat[:,:,ind//self.W,ind%self.W]
+        if self.num==0:
             self.features=feature.reshape(1,-1)
+            self.num+=1
             return feature,np.concatenate((det,s[0]))
-
-        cost=np.min(cdist(feature,self.features, 'cosine'))
+        cost=np.min(cdist(feature.reshape(1,-1),self.features, 'cosine'))
         w,h=ind%self.W,ind//self.W
         if cost<self.opt.diff_weight:
             costs=[]
@@ -261,10 +261,10 @@ class check_cos(object):
                     all_.append(f)
                     scores.append(self.heat[:,:,h_index,w_index])
                     index_box=torch.clip((h-self.opt.size//2+i)*self.W+(w-self.opt.size//2+j), min=0, max=self.H*self.W-1)
-                    boxes.append(self.dets[index_box,:])
+                    boxes.append(self.boxes[index_box,:])
                     
 
-                    if self.heat[:,:,h_index,w_index]<self.heat[:,:,h,w]-opt.diff_degree:
+                    if self.heat[:,:,h_index,w_index]<self.heat[:,:,h,w]-self.opt.diff_degree:
                         costs.append(-1)
                     else:
                         cost=np.min(cdist(f,self.features,"cosine"))
@@ -518,10 +518,10 @@ class JDETracker(object):
             reg = output['reg'] if self.opt.reg_offset else None
             dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
             id_features = []
-                for i in range(3):
-                    for j in range(3):
-                        id_feature_exp = _tranpose_and_gather_feat_expand(id_feature, inds, bias=(i - 1, j - 1)).squeeze(0).cpu().numpy()
-                        id_features.append(id_feature_exp)
+            for i in range(3):
+                for j in range(3):
+                    id_feature_exp = _tranpose_and_gather_feat_expand(id_feature, inds, bias=(i - 1, j - 1)).squeeze(0).cpu().numpy()
+                    id_features.append(id_feature_exp)
             id_feature = _tranpose_and_gather_feat(id_feature, inds)
             id_feature = id_feature.squeeze(0)
             id_feature = id_feature.cpu().numpy()
@@ -539,6 +539,8 @@ class JDETracker(object):
         #new:所有boxes
         #feature_id 的初始化
         if self.frame_id==1:
+            FEATURES=[]
+            DETS=[]
             dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
             dets_all = self.post_process(dets_all, meta)
             dets_all = self.merge_outputs_([dets_all])[1][:,:4]
@@ -546,12 +548,13 @@ class JDETracker(object):
             tracks_features=F.normalize(output['id'], dim=1)
             check = check_cos(self.opt,hm,dets_all,tracks_features)
             for tlbr,f,index in zip(dets[:,:4],id_feature,inds[0][remain_inds]):
+                
                 fea,de=check.check_and_revise(f,index,tlbr)
                 FEATURES.append(fea)
                 DETS.append(de)
             
-            id_feature=FEATURES
-            dets=DETS
+            id_feature=np.array(FEATURES)
+            dets=np.array(DETS)
         # vis
         '''
         for i in range(0, dets.shape[0]):
@@ -563,7 +566,6 @@ class JDETracker(object):
         cv2.waitKey(0)
         id0 = id0-1
         '''
-
         if len(dets) > 0:
             '''Detections'''
             detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
@@ -591,57 +593,60 @@ class JDETracker(object):
         strack_pool_features=np.asarray([track.smooth_feat for track in strack_pool], dtype=np.float)
         record_strack={}
         record_loc={}
-        for i in range(feature_id):
+        if len(strack_pool_features)!=0:
+            for i in range(len(id_feature)):
 
-            fea_s=np.array([f[i] for f in id_features])
-            ds=cdist(fea_s,strack_pool_features,"cosine")
-            
-            min_=np.min(ds)
-            if min_<0.5:
-                h,w=np.where(min_==ds)
-                if w in record_strack:
-                    record_strack[w]= -1
-                    record_loc[w]=h
-                else:
-                    record_strack[w]=i
-                    record_loc[w]=h
-  
-        keys=[]
-        locs=[]
-        for key in record_strack.keys():
-            #key 是 old
-
-            if record_strack[key] != -1:
-
-                num = record_loc[key]
-                loc = record_strack[key]
-                if num == 4:
-
-                    track = strack_pool[key]
-                    det = detections[loc]
-                    keys.append(key)
-                    locs.append(loc)
-                    if track.state == TrackState.Tracked:
-                        track.update(detections[idet], self.frame_id)
-                        activated_starcks.append(track)
+                fea_s=np.array([f[i] for f in id_features])
+                ds=cdist(fea_s,strack_pool_features,"cosine")
+                
+                min_=np.min(ds)
+                if min_<0.5:
+                    h,w=np.where(min_==ds)
+                    h=h[0]
+                    w=w[0]
+                    if w in record_strack:
+                        record_strack[w]= -1
+                        record_loc[w]=h
                     else:
-                        track.re_activate(det, self.frame_id, new_id=False)
-                        refind_stracks.append(track)
-                else:
-                    #如果不是最中心的位置，则不会更新
-                    track = strack_pool[key]
-                    det = detections[loc]
-                    keys.append(key)
-                    locs.append(loc)
-                    if track.state == TrackState.Tracked:
-                        track.update(det, self.frame_id,update_feature=False)
-                        activated_starcks.append(track)
-                    else:
-                        track.re_activate(det, self.frame_id, new_id=False)
-                        refind_stracks.append(track)
+                        record_strack[w]=i
+                        record_loc[w]=h
+    
+            keys=[]
+            locs=[]
+            for key in record_strack.keys():
+                #key 是 old
 
-        strack_pool=np.delete(np.array(strack_pool),keys).tolist()
-        detections=np.delete(np.array(detections),locs).tolist()
+                if record_strack[key] != -1:
+
+                    num = record_loc[key]
+                    loc = record_strack[key]
+                    if num == 4:
+
+                        track = strack_pool[key]
+                        det = detections[loc]
+                        keys.append(key)
+                        locs.append(loc)
+                        if track.state == TrackState.Tracked:
+                            track.update(det, self.frame_id)
+                            activated_starcks.append(track)
+                        else:
+                            track.re_activate(det, self.frame_id, new_id=False)
+                            refind_stracks.append(track)
+                    else:
+                        #如果不是最中心的位置，则不会更新
+                        track = strack_pool[key]
+                        det = detections[loc]
+                        keys.append(key)
+                        locs.append(loc)
+                        if track.state == TrackState.Tracked:
+                            track.update(det, self.frame_id,update_feature=False)
+                            activated_starcks.append(track)
+                        else:
+                            track.re_activate(det, self.frame_id, new_id=False)
+                            refind_stracks.append(track)
+
+            strack_pool=np.delete(np.array(strack_pool),keys).tolist()
+            detections=np.delete(np.array(detections),locs).tolist()
 
 
         dists = matching.embedding_distance(strack_pool, detections)

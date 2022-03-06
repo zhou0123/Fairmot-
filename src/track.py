@@ -89,8 +89,10 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             blob = torch.from_numpy(img).unsqueeze(0)
         if opt.chance=="orign":
             online_targets = tracker.update(blob, img0)
-        elif opt.chance=="test":
+        elif opt.chance=="test1":
             online_targets = tracker.update_f1(blob, img0)
+        elif opt.chance=="test2":
+            online_targets = tracker.update_f2(blob, img0)
         online_tlwhs = []
         online_ids = []
         #online_scores = []
