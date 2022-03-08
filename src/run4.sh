@@ -1,3 +1,0 @@
-CUDA_VISIBLE_DEVICES=3 python track.py mot --load_model /home/zhouchengyu/paper1/others/fairmot_dla34.pth --conf_thres 0.4 --val_mot16 True --experiments mot16_test_val_1.0 --chance test2 --min_level 1.0
-CUDA_VISIBLE_DEVICES=3 python track.py mot --load_model /home/zhouchengyu/paper1/others/fairmot_dla34.pth --conf_thres 0.4 --val_mot16 True --experiments mot16_test_val_1.1 --chance test2 --min_level 1.1
-CUDA_VISIBLE_DEVICES=3 python track.py mot --load_model /home/zhouchengyu/paper1/others/fairmot_dla34.pth --conf_thres 0.4 --val_mot16 True --experiments mot16_test_val_1.2 --chance test2 --min_level 1.2

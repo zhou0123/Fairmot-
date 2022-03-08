@@ -93,6 +93,10 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             online_targets = tracker.update_f1(blob, img0)
         elif opt.chance=="test2":
             online_targets = tracker.update_f2(blob, img0)
+        elif opt.chance=="test3":
+            online_targets = tracker.update_f3(blob, img0)
+        elif opt.chance=="test4":
+            online_targets = tracker.update_f4(blob, img0)
         online_tlwhs = []
         online_ids = []
         #online_scores = []
