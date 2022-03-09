@@ -760,7 +760,7 @@ class JDETracker(object):
             if len(u_detection) == 0:
                 lis_det.append(i)
                 strack_pool.pop(itracked)
-                break
+                continue
             ''' Step 3: Second association, with IOU'''
             # detections = [detections[i] for i in u_detection]
             # r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
@@ -770,7 +770,7 @@ class JDETracker(object):
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
 
             for itracked, idet in matches:
-                track = r_tracked_stracks[itracked]
+                track = strack_pool[itracked]
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
                     activated_starcks.append(track)
@@ -781,7 +781,7 @@ class JDETracker(object):
             if len(u_detection) == 0:
                 lis_det.append(i)
                 strack_pool.pop(itracked)
-                break
+                continue
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             #detections = [detections[i] for i in u_detection]
             atlbrs = [track.tlbr for track in unconfirmed]
