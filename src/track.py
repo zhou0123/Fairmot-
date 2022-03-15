@@ -174,7 +174,7 @@ def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), 
         namemap=mm.io.motchallenge_metric_names
     )
     print(strsummary)
-    Evaluator.save_summary(summary, os.path.join(result_root, 'summary_{}.xlsx'.format(exp_name)))
+    Evaluator.save_summary(summary, os.path.join("/home/zhouchengyu/paper1/results/", 'summary_{}.xlsx'.format(exp_name)))
 
 
 if __name__ == '__main__':
