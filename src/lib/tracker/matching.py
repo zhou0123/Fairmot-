@@ -135,6 +135,24 @@ def embedding_distance(tracks, detections, metric='cosine'):
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
     return cost_matrix
 
+def embedding_distance_f5(tracks, detections, metric='cosine'):
+    """
+    :param tracks: list[STrack]
+    :param detections: list[BaseTrack]
+    :param metric:
+    :return: cost_matrix np.ndarray
+    """
+
+    cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float)
+    if cost_matrix.size == 0:
+        return cost_matrix
+    det_features = np.vstack([track.curr_feat for track in detections], dtype=np.float)
+    #for i, track in enumerate(tracks):
+        #cost_matrix[i, :] = np.maximum(0.0, cdist(track.smooth_feat.reshape(1,-1), det_features, metric))
+    track_features = np.vstack([track.smooth_feat for track in tracks], dtype=np.float)
+    cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
+    return cost_matrix
+
 
 def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
     if cost_matrix.size == 0:
@@ -161,3 +179,20 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
+
+def fuse_motion_f5(kf, cost_matrix, tracks, detections,keep_nums,only_position=False, lambda_=0.98):
+    if cost_matrix.size == 0:
+        return cost_matrix
+    gating_dim = 2 if only_position else 4
+    gating_threshold = kalman_filter.chi2inv95[gating_dim]
+    measurements = np.asarray([det.to_xyah() for det in detections])
+    start=0
+    for row, track in enumerate(tracks):
+        gating_distance = kf.gating_distance(
+            track.mean, track.covariance, measurements, only_position, metric='maha')
+        cost_matrix[start : start + keep_nums[row], gating_distance > gating_threshold] = np.inf
+        cost_matrix[start : start + keep_nums[row]] = lambda_ * cost_matrix[start : start + keep_nums[row]] + (1 - lambda_) * gating_distance
+
+        start = start + keep_nums[row]
+    return cost_matrix
+

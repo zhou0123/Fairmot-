@@ -28,6 +28,8 @@ from cython_bbox import bbox_overlaps as bbox_ious
 from matplotlib import pyplot as plt
 import copy
 from tracking_utils import kalman_filter
+from tracker import sub_stracks
+from tracker.sub_stracks import STrack_f5
 
 
 
@@ -535,10 +537,12 @@ class JDETracker(object):
         print("dets_all.shape,tracks_features.shape",dets_all.shape,tracks_features.shape)
         #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
 
-        remain_inds = dets_all[:, 4] > self.opt.conf_thres
-        print("sum(remain_inds)",sum(remain_inds))
-        dets = dets[remain_inds]
-        id_feature = id_feature[remain_inds]
+        remain_inds = dets_all[:, 4] > self.opt.conf_thres #0.2 
+        #sum(remain_inds) 378
+        dets_all = dets_all[remain_inds]
+        tracks_features = tracks_features[remain_inds]
+
+        keep,keep_nums,keep_dets,keep_features = sub_stracks.nms_gather(self.opt,dets_all,track_features)
 
         # vis
         '''
@@ -552,10 +556,10 @@ class JDETracker(object):
         id0 = id0-1
         '''
 
-        if len(dets) > 0:
+        if len(keep) > 0:
             '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
-                          (tlbrs, f) in zip(dets[:, :5], id_feature)]
+            detections = [STrack_f5(STrack_f5.tlbr_to_tlwh_f5(tlbrs[:,:4]), tlbrs[0,4], f, 30) for
+                          (tlbrs, f) in zip(keep_dets, keep_features)]
         else:
             detections = []
 
@@ -574,9 +578,9 @@ class JDETracker(object):
         #for strack in strack_pool:
             #strack.predict()
         STrack.multi_predict(strack_pool)
-        dists = matching.embedding_distance(strack_pool, detections)
+        dists = matching.embedding_distance_f5(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
-        dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
+        dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
 
         for itracked, idet in matches:

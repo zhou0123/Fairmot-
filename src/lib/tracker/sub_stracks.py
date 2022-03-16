@@ -324,6 +324,12 @@ class STrack_f5(BaseTrack):
         ret = np.asarray(tlbr).copy()
         ret[2:] -= ret[:2]
         return ret
+    
+     @staticmethod
+    def tlbr_to_tlwh_f5(tlbr):
+        ret = np.asarray(tlbr).copy()
+        ret[:,2:] -= ret[:,:2]
+        return ret
 
     @staticmethod
     def tlwh_to_tlbr(tlwh):
@@ -348,6 +354,7 @@ def nms_gather(opt,dets,id_featrues):
     orders=(-1*scores).argsort()
 
     keep=[]
+    keep_nums=[]
     keep_dets = []
     keep_features = []
     while orders.shape()[0]>0:
@@ -374,7 +381,8 @@ def nms_gather(opt,dets,id_featrues):
         gather_index = orders[gather+1]
         keep_dets.append(np.vstack((dets[i,:],dets[gather_index,:])))
         keep_features.append(np.vstack((id_featrues[i,:],id_featrues[gather_index,:])))
+        keep_nums.append(len(keep_features))
         orders=orders[index+1]
     
-    return keep,keep_dets,keep_features
+    return keep,keep_nums,keep_dets,keep_features
 
