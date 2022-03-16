@@ -516,26 +516,27 @@ class JDETracker(object):
             wh = output['wh']
             id_feature = output['id']
             id_feature = F.normalize(id_feature, dim=1)
-
             reg = output['reg'] if self.opt.reg_offset else None
 
-            dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
-            id_feature = _tranpose_and_gather_feat(id_feature, inds)
-            id_feature = id_feature.squeeze(0)
-            id_feature = id_feature.cpu().numpy()
+            # dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
+            # id_feature = _tranpose_and_gather_feat(id_feature, inds)
+            # id_feature = id_feature.squeeze(0)
+            # id_feature = id_feature.cpu().numpy()
+            dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
+            tracks_features=F.normalize(output['id'], dim=1).cpu().numpy().squeeze(0).transpose(1,2,0).reshape(-1,128)
 
-        dets = self.post_process(dets, meta)
-        dets = self.merge_outputs([dets])[1]
-        print(dets[:,:4])
+        # dets = self.post_process(dets, meta)
+        # dets = self.merge_outputs([dets])[1]
 
-        dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
+        
         dets_all = self.post_process(dets_all, meta)
         dets_all = self.merge_outputs_([dets_all])[1]
-        tracks_features=F.normalize(output['id'], dim=1)
-
+        
         print("dets_all.shape,tracks_features.shape",dets_all.shape,tracks_features.shape)
+        #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
 
-        remain_inds = dets[:, 4] > self.opt.conf_thres
+        remain_inds = dets_all[:, 4] > self.opt.conf_thres
+        print("sum(remain_inds)",sum(remain_inds))
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
 
