@@ -1531,3 +1531,62 @@ def remove_duplicate_stracks(stracksa, stracksb):
     resa = [t for i, t in enumerate(stracksa) if not i in dupa]
     resb = [t for i, t in enumerate(stracksb) if not i in dupb]
     return resa, resb
+
+def conform(strack_nums,keep_nums,matches, u_track, u_detection):
+
+    start=0
+    match_detection={}
+    match_track={}
+    umatch_track={}
+    for i in range(len(keep_nums)):
+        keep_nums[i]+=start
+        start=keep_nums[i]
+    start = 0
+    for i in range(len(strack_nums)):
+        strack_nums[i]+=start
+        start = strack_nums[i]
+    start = 0
+    
+    for itracked, idet in matches:
+        while itracked > strack_nums[start]:
+            start+=1
+        for x_ in range(len(keep_nums)):
+
+            num = keep_nums[x_]
+
+            if num > idet:
+
+                break
+        if not match_detection.__contains__(start):
+
+            match_detection[start]=[]
+            match_track[start]=[]
+        
+        match_detection[start].append(idet)
+        match_track[start].append(itracked)
+    start=0
+    for u_track_ in u_track:
+
+        while u_track_ > strack_nums[start]:
+            start+=1
+        if not umatch_track.__contains__(start):
+
+            umatch_track[start]=[]
+        umatch_track[start].append(u_track_)
+    
+        
+
+
+
+
+
+        
+            
+
+
+
+
+
+
+
+    
