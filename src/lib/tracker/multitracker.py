@@ -1549,8 +1549,6 @@ def conform(strack_nums,keep_nums,matches):
         track_where = np.where((matches[:,0]>start_)& (matches[:,0]<end_-1))[0]
 
         dets_target = pd.Series(matches[track_where,:]) # 判断区间
-
-        
         is_betweens=[]
         se=[]
         start = 0
