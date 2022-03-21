@@ -538,6 +538,7 @@ class JDETracker(object):
         tracks_features = tracks_features[remain_inds]
 
         keep,keep_nums,keep_dets,keep_features = matching.nms_gather(self.opt,dets_all,tracks_features)
+        print("keep",len(keep))
         # vis
         '''
         for i in range(0, dets.shape[0]):
@@ -571,10 +572,15 @@ class JDETracker(object):
             #strack.predict()
         STrack.multi_predict(strack_pool)
         dists,strack_nums= matching.embedding_distance_f5(strack_pool, detections)
+      
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        print(len(u_detection))
+        print(len(u_track))
+        print(len(matches))
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
+        
 
         #for itracked, idet in matches:
         for i in range(len(record)):
@@ -594,7 +600,7 @@ class JDETracker(object):
         dists = matching.iou_distance(r_tracked_stracks, detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
-        
+       
         for i in range(len(record)):
             itracked, idet = matches[i]
             track = r_tracked_stracks[itracked]
@@ -625,6 +631,7 @@ class JDETracker(object):
             removed_stracks.append(track)
 
         """ Step 4: Init new stracks"""
+       
         for inew in u_detection:
             track = detections[inew]
             if track.score < self.det_thresh:

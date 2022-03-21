@@ -46,8 +46,9 @@ def nms_gather(opt,dets,id_featrues):
 
         gather_index = orders[gather+1]
         keep_dets.append(np.vstack((dets[i,:],dets[gather_index,:])))
-        keep_features.append(np.vstack((id_featrues[i,:],id_featrues[gather_index,:])))
-        keep_nums.append(len(keep_features))
+        array = np.vstack((id_featrues[i,:],id_featrues[gather_index,:]))
+        keep_features.append(array)
+        keep_nums.append(len(array))
         orders=orders[index+1]
     
     return keep,keep_nums,keep_dets,keep_features

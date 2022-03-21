@@ -216,8 +216,7 @@ class STrack_f5(BaseTrack):
         self.features.append(feat)
         if nums == None:
             ln = np.linalg.norm(self.smooth_feat,axis=1).reshape(-1,1)
-            self.smooth_feat /= ln
-            
+            self.smooth_feat /= ln            
         else:
             ln = np.linalg.norm(self.smooth_feat[nums,:],axis=1).reshape(-1,1)
             self.smooth_feat[nums,:] /= ln
