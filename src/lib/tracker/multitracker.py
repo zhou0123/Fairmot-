@@ -29,7 +29,7 @@ from matplotlib import pyplot as plt
 import copy
 from tracking_utils import kalman_filter
 from tracker import sub_stracks
-from tracker.sub_stracks import STrack_f5
+from .sub_stracks import STrack_f5
 import pandas as pd
 
 
@@ -536,7 +536,7 @@ class JDETracker(object):
         dets_all = dets_all[remain_inds]
         tracks_features = tracks_features[remain_inds]
 
-        keep,keep_nums,keep_dets,keep_features = sub_stracks.nms_gather(self.opt,dets_all,track_features)
+        keep,keep_nums,keep_dets,keep_features = matching.nms_gather(self.opt,dets_all,tracks_features)
 
         # vis
         '''
@@ -572,7 +572,7 @@ class JDETracker(object):
         #for strack in strack_pool:
             #strack.predict()
         STrack.multi_predict(strack_pool)
-        dists ,strack_nums= matching.embedding_distance_f5(strack_pool, detections)
+        dists,strack_nums= matching.embedding_distance_f5(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
@@ -1539,6 +1539,8 @@ def conform(strack_nums,keep_nums,matches):
     record = []
 
     start_ = 0
+    print("aqa"*100)
+    print(strack_nums)
     for _ in range(len(strack_nums)):
         end_ = strack_nums[_] + start_
         track_where = np.where((matches[:,0]>start_)& (matches[:,0]<end_-1))[0]
@@ -1561,17 +1563,18 @@ def conform(strack_nums,keep_nums,matches):
         dets_target = dets_target[:,is_between]
 
         record.append(dets_target)
-
-
         start_ = end_ 
         if max(is_betweens)>1:
             results.append([_,out])
     results = np.array(results)
+    if len(results) == 0:
+        return results, u_track ,u_detection,record
     for i in range(len(strack_nums)):
         if i in results[:,0]:
             continue
         u_track.append(i)
     for i in range(len(keep_nums)):
+        print()
         if i in results[:,1]:
             continue
         u_detection.append(i)

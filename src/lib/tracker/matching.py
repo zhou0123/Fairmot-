@@ -7,7 +7,50 @@ from scipy.spatial.distance import cdist
 from cython_bbox import bbox_overlaps as bbox_ious
 from tracking_utils import kalman_filter
 import time
+def nms_gather(opt,dets,id_featrues):
+    """
+    dets [ x , 5]
+    id_features [ x, 128]
+    """
 
+    Threshold=opt.Threshold
+
+    x1,y1,x2,y2,scores= dets[:,0],dets[:,1],dets[:,2],dets[:,3],dets[:,4]
+    areas=(y2-y1+1)*(x2-x1+1)
+    orders=(-1*scores).argsort()
+
+    keep=[]
+    keep_nums=[]
+    keep_dets = []
+    keep_features = []
+    while orders.shape[0]>0:
+        
+        i=orders[0]
+        
+        keep.append(i)
+        
+        xx1=np.maximum(x1[i],x1[orders[1:]])
+        yy1=np.maximum(y1[i],y1[orders[1:]])
+        xx2=np.minimum(x2[i],x2[orders[1:]])
+        yy2=np.minimum(y2[i],y2[orders[1:]])
+        
+        ws=np.maximum(xx2-xx1+1,0)
+        hs=np.maximum(yy2-yy1+1,0)
+        
+        inter=ws*hs
+        iou=inter/(areas[i]+areas[orders[1:]]-inter)
+        
+        index=np.where(iou<Threshold)[0]
+
+        gather = np.where(iou>=Threshold)[0]
+
+        gather_index = orders[gather+1]
+        keep_dets.append(np.vstack((dets[i,:],dets[gather_index,:])))
+        keep_features.append(np.vstack((id_featrues[i,:],id_featrues[gather_index,:])))
+        keep_nums.append(len(keep_features))
+        orders=orders[index+1]
+    
+    return keep,keep_nums,keep_dets,keep_features
 def merge_matches(m1, m2, shape):
     O,P,Q = shape
     m1 = np.asarray(m1)
@@ -144,13 +187,14 @@ def embedding_distance_f5(tracks, detections, metric='cosine'):
     """
 
     cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float)
+    strack_nums = [len(track.smooth_feat) for track in tracks]
     if cost_matrix.size == 0:
-        return cost_matrix
+        return cost_matrix,strack_nums
     det_features = np.vstack([track.curr_feat for track in detections], dtype=np.float)
     #for i, track in enumerate(tracks):
         #cost_matrix[i, :] = np.maximum(0.0, cdist(track.smooth_feat.reshape(1,-1), det_features, metric))
     track_features = np.vstack([track.smooth_feat for track in tracks], dtype=np.float)
-    strack_nums = [len(track.smooth_feat) for track in tracks]
+    
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
     return cost_matrix,strack_nums
 

@@ -113,7 +113,7 @@ class STrack_(BaseTrack):
         if new_id:
             self.track_id = self.next_id()
 
-    def update(self, new_track, frame_id, num,update_feature=True,record):
+    def update(self, new_track, frame_id,record,update_feature=True):
         """
         Update a matched track
         :type new_track: STrack
@@ -206,7 +206,8 @@ class STrack_f5(BaseTrack):
         """
         feat [x,128]
         """
-        feat /= np.linalg.norm(feat,axis=1)
+        ln = np.linalg.norm(feat,axis=1).reshape(-1,1)
+        feat /= ln
         self.curr_feat = feat
         if self.smooth_feat == None:
             self.smooth_feat = feat
@@ -214,9 +215,12 @@ class STrack_f5(BaseTrack):
             self.smooth_feat[nums,:] = self.alpha * self.smooth_feat[nums,:] + (1 - self.alpha) * feat
         self.features.append(feat)
         if nums == None:
-            self.smooth_feat /= np.linalg.norm(self.smooth_feat,axis=1)
+            ln = np.linalg.norm(self.smooth_feat,axis=1).reshape(-1,1)
+            self.smooth_feat /= ln
+            
         else:
-            self.smooth_feat[nums,:] /= np.linalg.norm(self.smooth_feat[nums,:])
+            ln = np.linalg.norm(self.smooth_feat[nums,:],axis=1).reshape(-1,1)
+            self.smooth_feat[nums,:] /= ln
 
     def predict(self):
         mean_state = self.mean.copy()
@@ -325,7 +329,7 @@ class STrack_f5(BaseTrack):
         ret[2:] -= ret[:2]
         return ret
     
-     @staticmethod
+    @staticmethod
     def tlbr_to_tlwh_f5(tlbr):
         ret = np.asarray(tlbr).copy()
         ret[:,2:] -= ret[:,:2]
@@ -341,48 +345,5 @@ class STrack_f5(BaseTrack):
         return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
 
 
-def nms_gather(opt,dets,id_featrues):
-    """
-    dets [ x , 5]
-    id_features [ x, 128]
-    """
 
-    Threshold=opt.Threshold
-
-    x1,y1,x2,y2,scores= dets[:,0],dets[:,1],dets[:,2],dets[:,3],dets[:,4]
-    areas=(y2-y1+1)*(x2-x1+1)
-    orders=(-1*scores).argsort()
-
-    keep=[]
-    keep_nums=[]
-    keep_dets = []
-    keep_features = []
-    while orders.shape()[0]>0:
-        
-        i=orders[0]
-        
-        keep.append(i)
-        
-        xx1=np.maximum(x1[i],x1[orders[1:]])
-        yy1=np.maximum(y1[i],y1[orders[1:]])
-        xx2=np.minimum(x2[i],x2[orders[1:]])
-        yy2=np.minimum(y2[i],y2[orders[1:]])
-        
-        ws=np.maximum(xx2-xx1+1,0)
-        hs=np.maximum(yy2-yy1+1,0)
-        
-        inter=ws*hs
-        iou=inter/(areas[i]+areas[orders[1:]]-inter)
-        
-        index=np.where(iou<Threshold)[0]
-
-        gather = np.where(iou>=Threshold)[0]
-
-        gather_index = orders[gather+1]
-        keep_dets.append(np.vstack((dets[i,:],dets[gather_index,:])))
-        keep_features.append(np.vstack((id_featrues[i,:],id_featrues[gather_index,:])))
-        keep_nums.append(len(keep_features))
-        orders=orders[index+1]
-    
-    return keep,keep_nums,keep_dets,keep_features
 
