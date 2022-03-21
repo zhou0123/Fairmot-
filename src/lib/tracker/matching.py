@@ -150,8 +150,9 @@ def embedding_distance_f5(tracks, detections, metric='cosine'):
     #for i, track in enumerate(tracks):
         #cost_matrix[i, :] = np.maximum(0.0, cdist(track.smooth_feat.reshape(1,-1), det_features, metric))
     track_features = np.vstack([track.smooth_feat for track in tracks], dtype=np.float)
+    strack_nums = [len(track.smooth_feat) for track in tracks]
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
-    return cost_matrix
+    return cost_matrix,strack_nums
 
 
 def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):

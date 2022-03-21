@@ -521,21 +521,14 @@ class JDETracker(object):
             id_feature = F.normalize(id_feature, dim=1)
             reg = output['reg'] if self.opt.reg_offset else None
 
-            # dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
-            # id_feature = _tranpose_and_gather_feat(id_feature, inds)
-            # id_feature = id_feature.squeeze(0)
-            # id_feature = id_feature.cpu().numpy()
             dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
             tracks_features=F.normalize(output['id'], dim=1).cpu().numpy().squeeze(0).transpose(1,2,0).reshape(-1,128)
 
-        # dets = self.post_process(dets, meta)
-        # dets = self.merge_outputs([dets])[1]
-
+      
         
         dets_all = self.post_process(dets_all, meta)
         dets_all = self.merge_outputs_([dets_all])[1]
         
-        #print("dets_all.shape,tracks_features.shape",dets_all.shape,tracks_features.shape)
         #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
 
         remain_inds = dets_all[:, 4] > self.opt.conf_thres #0.2 
@@ -579,7 +572,7 @@ class JDETracker(object):
         #for strack in strack_pool:
             #strack.predict()
         STrack.multi_predict(strack_pool)
-        dists = matching.embedding_distance_f5(strack_pool, detections)
+        dists ,strack_nums= matching.embedding_distance_f5(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
