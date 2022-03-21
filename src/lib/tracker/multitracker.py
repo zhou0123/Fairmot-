@@ -531,13 +531,13 @@ class JDETracker(object):
         
         #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
 
-        remain_inds = dets_all[:, 4] > self.opt.conf_thres #0.2 
+        #remain_inds = dets_all[:, 4] > self.opt.conf_thres #0.2 
+        remain_inds = dets_all[:, 4] > 0.3
         #sum(remain_inds) 378
         dets_all = dets_all[remain_inds]
         tracks_features = tracks_features[remain_inds]
 
         keep,keep_nums,keep_dets,keep_features = matching.nms_gather(self.opt,dets_all,tracks_features)
-
         # vis
         '''
         for i in range(0, dets.shape[0]):
@@ -549,14 +549,12 @@ class JDETracker(object):
         cv2.waitKey(0)
         id0 = id0-1
         '''
-
         if len(keep) > 0:
             '''Detections'''
             detections = [STrack_f5(STrack_f5.tlbr_to_tlwh_f5(tlbrs[:,:4]), tlbrs[0,4], f, 30) for
                           (tlbrs, f) in zip(keep_dets, keep_features)]
         else:
             detections = []
-
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
         tracked_stracks = []  # type: list[STrack]
@@ -1539,8 +1537,6 @@ def conform(strack_nums,keep_nums,matches):
     record = []
 
     start_ = 0
-    print("aqa"*100)
-    print(strack_nums)
     for _ in range(len(strack_nums)):
         end_ = strack_nums[_] + start_
         track_where = np.where((matches[:,0]>start_)& (matches[:,0]<end_-1))[0]
@@ -1574,7 +1570,6 @@ def conform(strack_nums,keep_nums,matches):
             continue
         u_track.append(i)
     for i in range(len(keep_nums)):
-        print()
         if i in results[:,1]:
             continue
         u_detection.append(i)
