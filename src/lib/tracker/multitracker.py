@@ -30,6 +30,7 @@ import copy
 from tracking_utils import kalman_filter
 from tracker import sub_stracks
 from tracker.sub_stracks import STrack_f5
+import pandas as pd
 
 
 
@@ -534,7 +535,7 @@ class JDETracker(object):
         dets_all = self.post_process(dets_all, meta)
         dets_all = self.merge_outputs_([dets_all])[1]
         
-        print("dets_all.shape,tracks_features.shape",dets_all.shape,tracks_features.shape)
+        #print("dets_all.shape,tracks_features.shape",dets_all.shape,tracks_features.shape)
         #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
 
         remain_inds = dets_all[:, 4] > self.opt.conf_thres #0.2 
@@ -582,15 +583,18 @@ class JDETracker(object):
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
 
-        for itracked, idet in matches:
+        #for itracked, idet in matches:
+        for i in range(len(record)):
+            itracked, idet = matches[i]
             track = strack_pool[itracked]
             det = detections[idet]
             if track.state == TrackState.Tracked:
-                track.update(detections[idet], self.frame_id)
+                track.update(detections[idet], self.frame_id,record[i])
                 activated_starcks.append(track)
             else:
-                track.re_activate(det, self.frame_id, new_id=False)
+                track.re_activate(det, self.frame_id, record[i],new_id=False)
                 refind_stracks.append(track)
 
         ''' Step 3: Second association, with IOU'''
@@ -598,15 +602,17 @@ class JDETracker(object):
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
         dists = matching.iou_distance(r_tracked_stracks, detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
-
-        for itracked, idet in matches:
+        matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
+        
+        for i in range(len(record)):
+            itracked, idet = matches[i]
             track = r_tracked_stracks[itracked]
             det = detections[idet]
             if track.state == TrackState.Tracked:
-                track.update(det, self.frame_id)
+                track.update(det, self.frame_id,record[i])
                 activated_starcks.append(track)
             else:
-                track.re_activate(det, self.frame_id, new_id=False)
+                track.re_activate(det, self.frame_id,record[i],new_id=False)
                 refind_stracks.append(track)
 
         for it in u_track:
@@ -1532,49 +1538,55 @@ def remove_duplicate_stracks(stracksa, stracksb):
     resb = [t for i, t in enumerate(stracksb) if not i in dupb]
     return resa, resb
 
-def conform(strack_nums,keep_nums,matches, u_track, u_detection):
+def conform(strack_nums,keep_nums,matches):
+    results = []
+    u_track= []
+    u_detection = []
 
-    start=0
-    match_detection={}
-    match_track={}
-    umatch_track={}
-    for i in range(len(keep_nums)):
-        keep_nums[i]+=start
-        start=keep_nums[i]
-    start = 0
+    record = []
+
+    start_ = 0
+    for _ in range(len(strack_nums)):
+        end_ = strack_nums[_] + start_
+        track_where = np.where((matches[:,0]>start_)& (matches[:,0]<end_-1))[0]
+
+        dets_target = pd.Series(matches[track_where,:]) # 判断区间
+
+        
+        is_betweens=[]
+        se=[]
+        start = 0
+        for i in range(len(keep_nums)):
+            end = start+strack_nums[i]
+            se.append([start,end])
+            is_between = dets_target.between(start, end)
+            is_betweens.append(np.sum(np.array(is_between)))
+            start = end
+        out = is_betweens.index(max(is_betweens))
+        is_between = dets_target.between(se[out][0],se[out][1])
+        dets_target = np.array(dets_target)
+        dets_target = dets_target[:,is_between]
+
+        record.append(dets_target)
+
+
+        start_ = end_ 
+        if max(is_betweens)>1:
+            results.append([_,out])
+    results = np.array(results)
     for i in range(len(strack_nums)):
-        strack_nums[i]+=start
-        start = strack_nums[i]
-    start = 0
-    
-    for itracked, idet in matches:
-        while itracked > strack_nums[start]:
-            start+=1
-        for x_ in range(len(keep_nums)):
-
-            num = keep_nums[x_]
-
-            if num > idet:
-
-                break
-        if not match_detection.__contains__(start):
-
-            match_detection[start]=[]
-            match_track[start]=[]
+        if i in results[:,0]:
+            continue
+        u_track.append(i)
+    for i in range(len(keep_nums)):
+        if i in results[:,1]:
+            continue
+        u_detection.append(i)
+    return results, u_track ,u_detection,record
         
-        match_detection[start].append(idet)
-        match_track[start].append(itracked)
-    start=0
-    for u_track_ in u_track:
-
-        while u_track_ > strack_nums[start]:
-            start+=1
-        if not umatch_track.__contains__(start):
-
-            umatch_track[start]=[]
-        umatch_track[start].append(u_track_)
     
-        
+
+    
 
 
 

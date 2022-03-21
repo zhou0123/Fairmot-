@@ -100,12 +100,12 @@ class STrack_(BaseTrack):
         self.frame_id = frame_id
         self.start_frame = frame_id
 
-    def re_activate(self, new_track, frame_id, new_id=False):
+    def re_activate(self, new_track, frame_id, record,new_id=False):
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
 
-        self.update_features(new_track.curr_feat)
+        self.update_features(new_track.curr_feat[record[:,0],:],record[:,1])
         self.tracklet_len = 0
         self.state = TrackState.Tracked
         self.is_activated = True
@@ -113,7 +113,7 @@ class STrack_(BaseTrack):
         if new_id:
             self.track_id = self.next_id()
 
-    def update(self, new_track, frame_id, num,update_feature=True):
+    def update(self, new_track, frame_id, num,update_feature=True,record):
         """
         Update a matched track
         :type new_track: STrack
@@ -132,7 +132,7 @@ class STrack_(BaseTrack):
 
         self.score = new_track.score
         if update_feature:
-            self.update_features(new_track.curr_feat,num)
+            self.update_features(new_track.curr_feat[record[:,0],:],record[:,1])
 
     @property
     def tlwh(self):
