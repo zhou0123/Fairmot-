@@ -113,7 +113,7 @@ class STrack_f5(BaseTrack):
         if new_id:
             self.track_id = self.next_id()
 
-    def update(self, new_track, frame_id,record,update_feature=True):
+    def update(self, new_track, frame_id,record=None,update_feature=True):
         """
         Update a matched track
         :type new_track: STrack
