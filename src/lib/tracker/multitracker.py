@@ -579,8 +579,7 @@ class JDETracker(object):
         # u_detection 42 其他为0
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
         
-        print(len(u_detection))
-        
+
         #for itracked, idet in matches:
         for i in range(len(record)):
             itracked, idet = matches[i]
@@ -599,7 +598,6 @@ class JDETracker(object):
         dists = matching.iou_distance(r_tracked_stracks, detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
-       
         for i in range(len(record)):
             itracked, idet = matches[i]
             track = r_tracked_stracks[itracked]
@@ -610,7 +608,6 @@ class JDETracker(object):
             else:
                 track.re_activate(det, self.frame_id,record[i],new_id=False)
                 refind_stracks.append(track)
-
         for it in u_track:
             track = r_tracked_stracks[it]
             if not track.state == TrackState.Lost:
@@ -1547,26 +1544,26 @@ def conform(strack_nums,keep_nums,matches):
     for _ in range(len(strack_nums)):
         end_ = strack_nums[_] + start_
         track_where = np.where((matches[:,0]>start_)& (matches[:,0]<end_-1))[0]
-
-        dets_target = pd.Series(matches[track_where,:]) # 判断区间
+        dets_target = pd.Series(matches[track_where,:][:,1]) # 判断区间
+        dets_target_=matches[track_where,:]
         is_betweens=[]
         se=[]
         start = 0
         for i in range(len(keep_nums)):
-            end = start+strack_nums[i]
+            end = start+keep_nums[i]
             se.append([start,end])
             is_between = dets_target.between(start, end)
             is_betweens.append(np.sum(np.array(is_between)))
             start = end
-        out = is_betweens.index(max(is_betweens))
-        is_between = dets_target.between(se[out][0],se[out][1])
-        dets_target = np.array(dets_target)
-        dets_target = dets_target[:,is_between]
-
-        record.append(dets_target)
-        start_ = end_ 
+       
         if max(is_betweens)>1:
+            out = is_betweens.index(max(is_betweens))
+            is_between = dets_target.between(se[out][0],se[out][1])
+            dets_target = dets_target_[is_between,:]-[start_,se[out][0]]
+
+            record.append(dets_target)
             results.append([_,out])
+        start_ = end_ 
     results = np.array(results)
     if len(results) == 0:
         return results, u_track ,u_detection,record
