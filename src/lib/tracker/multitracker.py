@@ -538,7 +538,7 @@ class JDETracker(object):
         tracks_features = tracks_features[remain_inds]
 
         keep,keep_nums,keep_dets,keep_features = matching.nms_gather(self.opt,dets_all,tracks_features)
-        print("keep",len(keep))
+        print("keep_nums",len(keep_nums))
         # vis
         '''
         for i in range(0, dets.shape[0]):
@@ -576,12 +576,11 @@ class JDETracker(object):
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
-        print(len(u_detection))
-        print(len(u_track))
-        print(len(matches))
+        # u_detection 42 其他为0
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
         
-
+        print(len(u_detection))
+        
         #for itracked, idet in matches:
         for i in range(len(record)):
             itracked, idet = matches[i]
@@ -1540,10 +1539,11 @@ def conform(strack_nums,keep_nums,matches):
     results = []
     u_track= []
     u_detection = []
-
     record = []
-
     start_ = 0
+    if len(strack_nums) == 0:
+        u_detection = [ i for i in range(len(keep_nums))]
+        return results, u_track ,u_detection,record
     for _ in range(len(strack_nums)):
         end_ = strack_nums[_] + start_
         track_where = np.where((matches[:,0]>start_)& (matches[:,0]<end_-1))[0]

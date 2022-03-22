@@ -191,10 +191,10 @@ def embedding_distance_f5(tracks, detections, metric='cosine'):
     strack_nums = [len(track.smooth_feat) for track in tracks]
     if cost_matrix.size == 0:
         return cost_matrix,strack_nums
-    det_features = np.vstack([track.curr_feat for track in detections], dtype=np.float)
+    det_features = np.vstack([track.curr_feat for track in detections]).astype(np.float)
     #for i, track in enumerate(tracks):
         #cost_matrix[i, :] = np.maximum(0.0, cdist(track.smooth_feat.reshape(1,-1), det_features, metric))
-    track_features = np.vstack([track.smooth_feat for track in tracks], dtype=np.float)
+    track_features = np.vstack([track.smooth_feat for track in tracks]).astype(np.float)
     
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
     return cost_matrix,strack_nums
@@ -229,6 +229,7 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
 def fuse_motion_f5(kf, cost_matrix, tracks, detections,keep_nums,only_position=False, lambda_=0.98):
     if cost_matrix.size == 0:
         return cost_matrix
+    print(cost_matrix.shape)
     gating_dim = 2 if only_position else 4
     gating_threshold = kalman_filter.chi2inv95[gating_dim]
     measurements = np.asarray([det.to_xyah() for det in detections])
@@ -236,7 +237,10 @@ def fuse_motion_f5(kf, cost_matrix, tracks, detections,keep_nums,only_position=F
     for row, track in enumerate(tracks):
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position, metric='maha')
-        cost_matrix[start : start + keep_nums[row], gating_distance > gating_threshold] = np.inf
+        index_ = np.where(gating_distance > gating_threshold)[0]
+        cost_matrix[start : start + keep_nums[row], index_] = np.inf
+        # (42,)gating_distance
+        # (7, 255) cost_matrix[start : start + keep_nums[row]]
         cost_matrix[start : start + keep_nums[row]] = lambda_ * cost_matrix[start : start + keep_nums[row]] + (1 - lambda_) * gating_distance
 
         start = start + keep_nums[row]
