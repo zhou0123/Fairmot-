@@ -226,10 +226,9 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
 
-def fuse_motion_f5(kf, cost_matrix, tracks, detections,keep_nums,only_position=False, lambda_=0.98):
+def fuse_motion_f5(kf, cost_matrix, tracks, detections,keep_nums,strack_nums,only_position=False, lambda_=0.98):
     if cost_matrix.size == 0:
         return cost_matrix
-    print(cost_matrix.shape)
     gating_dim = 2 if only_position else 4
     gating_threshold = kalman_filter.chi2inv95[gating_dim]
     measurements = np.asarray([det.to_xyah() for det in detections])
@@ -238,10 +237,10 @@ def fuse_motion_f5(kf, cost_matrix, tracks, detections,keep_nums,only_position=F
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position, metric='maha')
         index_ = np.where(gating_distance > gating_threshold)[0]
-        cost_matrix[start : start + keep_nums[row], index_] = np.inf
+        cost_matrix[start : start + strack_nums[row], index_] = np.inf
         gating_distance = np.repeat(gating_distance,keep_nums)
-        cost_matrix[start : start + keep_nums[row]] = lambda_ * cost_matrix[start : start + keep_nums[row]] + (1 - lambda_) * gating_distance
+        cost_matrix[start : start + strack_nums[row]] = lambda_ * cost_matrix[start : start + strack_nums[row]] + (1 - lambda_) * gating_distance
 
-        start = start + keep_nums[row]
+        start = start + strack_nums[row]
     return cost_matrix
 

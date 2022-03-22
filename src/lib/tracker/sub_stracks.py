@@ -105,7 +105,8 @@ class STrack_f5(BaseTrack):
             self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
 
-        self.update_features(new_track.curr_feat[record[:,1],:],nums=record[:,0])
+        #self.update_features(new_track.curr_feat[record[:,1],:],nums=record[:,0])
+        self.smooth_feat = new_track.curr_feat
         self.tracklet_len = 0
         self.state = TrackState.Tracked
         self.is_activated = True

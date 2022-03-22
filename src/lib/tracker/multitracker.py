@@ -538,7 +538,7 @@ class JDETracker(object):
         tracks_features = tracks_features[remain_inds]
 
         keep,keep_nums,keep_dets,keep_features = matching.nms_gather(self.opt,dets_all,tracks_features)
-        print("keep_nums",len(keep_nums))
+        #print("keep_nums",len(keep_nums))
         # vis
         '''
         for i in range(0, dets.shape[0]):
@@ -574,7 +574,7 @@ class JDETracker(object):
         dists,strack_nums= matching.embedding_distance_f5(strack_pool, detections)
       
         #dists = matching.iou_distance(strack_pool, detections)
-        dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums) # 选择最高分box的作为惩罚相加
+        dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         # u_detection 42 其他为0
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
@@ -599,7 +599,6 @@ class JDETracker(object):
         print("len(detections)",len(detections))
         dists = matching.iou_distance(r_tracked_stracks, detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
-        print(matches)
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
             det = detections[idet]
@@ -607,7 +606,7 @@ class JDETracker(object):
                 track.update(det, self.frame_id,update_feature=False)
                 activated_starcks.append(track)
             else:
-                track.re_activate(det, self.frame_id,record[i],new_id=False)
+                track.re_activate(det, self.frame_id,new_id=False)
                 refind_stracks.append(track)
         for it in u_track:
             track = r_tracked_stracks[it]
@@ -620,7 +619,7 @@ class JDETracker(object):
         dists = matching.iou_distance(unconfirmed, detections)
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
         for itracked, idet in matches:
-            unconfirmed[itracked].update(detections[idet], self.frame_id)
+            unconfirmed[itracked].update(detections[idet], self.frame_id,update_feature=False)
             activated_starcks.append(unconfirmed[itracked])
         for it in u_unconfirmed:
             track = unconfirmed[it]
@@ -1560,7 +1559,7 @@ def conform(strack_nums,keep_nums,matches):
         if max(is_betweens)>1:
             out = is_betweens.index(max(is_betweens))
             is_between = dets_target.between(se[out][0],se[out][1])
-            dets_target = dets_target_[is_between,:]-[start_,se[out][0]]
+            dets_target = dets_target_[is_between,:]-[start_,se[out][0]+1]
 
             record.append(dets_target)
             results.append([_,out])
