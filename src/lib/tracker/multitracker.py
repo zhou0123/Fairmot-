@@ -578,8 +578,7 @@ class JDETracker(object):
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         # u_detection 42 其他为0
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
-        
-
+        #到这里！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
         #for itracked, idet in matches:
         for i in range(len(record)):
             itracked, idet = matches[i]
@@ -1557,7 +1556,6 @@ def conform(strack_nums,keep_nums,matches):
         if max(is_betweens)>keep_nums[out]/2:
             is_between = dets_target.between(se[out][0],se[out][1]-1)
             dets_target = dets_target_[is_between,:]-[start_,se[out][0]]
-
             record.append(dets_target)
             results.append([_,out])
         start_ = end_ 
