@@ -1541,7 +1541,7 @@ def conform(strack_nums,keep_nums,matches):
         return results, u_track ,u_detection,record
     for _ in range(len(strack_nums)):
         end_ = strack_nums[_] + start_
-        track_where = np.where((matches[:,0]>start_)& (matches[:,0]<end_-1))[0]
+        track_where = np.where((matches[:,0]>=start_)& (matches[:,0]<end_))[0]
         dets_target = pd.Series(matches[track_where,:][:,1]) # 判断区间
         dets_target_=matches[track_where,:]
         is_betweens=[]
@@ -1549,15 +1549,14 @@ def conform(strack_nums,keep_nums,matches):
         start = 0
         for i in range(len(keep_nums)):
             end = start+keep_nums[i]
-            se.append([start,end])
-            is_between = dets_target.between(start, end)
+            se.append([start,end])#左闭右开
+            is_between = dets_target.between(start, end-1)
             is_betweens.append(np.sum(np.array(is_between)))
             start = end
-       
-        if max(is_betweens)>1:
-            out = is_betweens.index(max(is_betweens))
-            is_between = dets_target.between(se[out][0],se[out][1])
-            dets_target = dets_target_[is_between,:]-[start_,se[out][0]+1]
+        out = is_betweens.index(max(is_betweens))
+        if max(is_betweens)>keep_nums[out]/2:
+            is_between = dets_target.between(se[out][0],se[out][1]-1)
+            dets_target = dets_target_[is_between,:]-[start_,se[out][0]]
 
             record.append(dets_target)
             results.append([_,out])

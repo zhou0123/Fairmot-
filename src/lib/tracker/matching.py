@@ -236,9 +236,10 @@ def fuse_motion_f5(kf, cost_matrix, tracks, detections,keep_nums,strack_nums,onl
     for row, track in enumerate(tracks):
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position, metric='maha')
+        gating_distance = np.repeat(gating_distance,keep_nums)
         index_ = np.where(gating_distance > gating_threshold)[0]
         cost_matrix[start : start + strack_nums[row], index_] = np.inf
-        gating_distance = np.repeat(gating_distance,keep_nums)
+        #gating_distance = np.repeat(gating_distance,keep_nums)
         cost_matrix[start : start + strack_nums[row]] = lambda_ * cost_matrix[start : start + strack_nums[row]] + (1 - lambda_) * gating_distance
 
         start = start + strack_nums[row]
