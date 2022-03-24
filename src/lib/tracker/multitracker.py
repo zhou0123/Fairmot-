@@ -572,12 +572,13 @@ class JDETracker(object):
             #strack.predict()
         STrack.multi_predict(strack_pool)
         dists,strack_nums= matching.embedding_distance_f5(strack_pool, detections)
-      
+        #print("len(keep)",len(keep))
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         # u_detection 42 其他为0
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
+        #print(matches.shape)
         #到这里！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
         #for itracked, idet in matches:
         for i in range(len(record)):
@@ -592,9 +593,11 @@ class JDETracker(object):
                 refind_stracks.append(track)
 
         ''' Step 3: Second association, with IOU'''
+        #print("len(u_detection)",len(u_detection))
         detections = [detections[i] for i in u_detection]
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
         dists = matching.iou_distance(r_tracked_stracks, detections)
+        #print("iou.shape",dists.shape)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
@@ -610,7 +613,7 @@ class JDETracker(object):
             if not track.state == TrackState.Lost:
                 track.mark_lost()
                 lost_stracks.append(track)
-
+        #print("len(u_detection)",len(u_detection))
         '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
         detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, detections)
@@ -624,7 +627,7 @@ class JDETracker(object):
             removed_stracks.append(track)
 
         """ Step 4: Init new stracks"""
-       
+        #print("len(u_detection)",len(u_detection))
         for inew in u_detection:
             track = detections[inew]
             if track.score < self.det_thresh:
@@ -1537,7 +1540,7 @@ def conform(strack_nums,keep_nums,matches):
     start_ = 0
     if len(strack_nums) == 0:
         u_detection = [ i for i in range(len(keep_nums))]
-        return results, u_track ,u_detection,record
+        return np.array(results), u_track ,u_detection,record
     for _ in range(len(strack_nums)):
         end_ = strack_nums[_] + start_
         track_where = np.where((matches[:,0]>=start_)& (matches[:,0]<end_))[0]
