@@ -578,6 +578,21 @@ class JDETracker(object):
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         # u_detection 42 其他为0
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
+        # print("Aqa"*10)
+       
+        # lis_=[]
+        # lis_1=[]
+        # start=0
+        # for i in keep_nums:
+        #     lis_.append(start)
+        #     start+=i
+        # start=0
+        # for i in strack_nums:
+        #     lis_1.append(start)
+        #     start+=i
+
+        # print("keep_nums",lis_)
+        # print("strack_nums",lis_1)
         #print(matches.shape)
         #到这里！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
         #for itracked, idet in matches:
