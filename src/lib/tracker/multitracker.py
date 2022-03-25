@@ -523,9 +523,6 @@ class JDETracker(object):
 
             dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
             tracks_features=F.normalize(output['id'], dim=1).cpu().numpy().squeeze(0).transpose(1,2,0).reshape(-1,128)
-
-      
-        
         dets_all = self.post_process(dets_all, meta)
         dets_all = self.merge_outputs_([dets_all])[1]
         
@@ -571,7 +568,7 @@ class JDETracker(object):
         #for strack in strack_pool:
             #strack.predict()
         STrack.multi_predict(strack_pool)
-        dists,strack_nums= matching.embedding_distance_f5(strack_pool, detections)
+        dists,strack_nums,keep_nums= matching.embedding_distance_f5(strack_pool, detections)
         #print("len(keep)",len(keep))
         #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums) # 选择最高分box的作为惩罚相加
@@ -590,7 +587,6 @@ class JDETracker(object):
         # for i in strack_nums:
         #     lis_1.append(start)
         #     start+=i
-
         # print("keep_nums",lis_)
         # print("strack_nums",lis_1)
         #print(matches.shape)
@@ -629,12 +625,15 @@ class JDETracker(object):
                 track.mark_lost()
                 lost_stracks.append(track)
         #print("len(u_detection)",len(u_detection))
-        '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
+        '''Deal with unconfirmed tracks'''
         detections = [detections[i] for i in u_detection]
-        dists = matching.iou_distance(unconfirmed, detections)
-        matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
-        for itracked, idet in matches:
-            unconfirmed[itracked].update(detections[idet], self.frame_id,update_feature=False)
+        dists,strack_nums,keep_nums= matching.embedding_distance_f5(unconfirmed, detections)
+        matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        matches, u_unconfirmed, u_detection,record = conform(strack_nums,keep_nums,matches)
+        
+        for i in range(len(record)):
+            itracked, idet = matches[i]
+            unconfirmed[itracked].update(detections[idet], self.frame_id,record[i])
             activated_starcks.append(unconfirmed[itracked])
         for it in u_unconfirmed:
             track = unconfirmed[it]
@@ -642,7 +641,6 @@ class JDETracker(object):
             removed_stracks.append(track)
 
         """ Step 4: Init new stracks"""
-        #print("len(u_detection)",len(u_detection))
         for inew in u_detection:
             track = detections[inew]
             if track.score < self.det_thresh:
@@ -1553,7 +1551,7 @@ def conform(strack_nums,keep_nums,matches):
     u_detection = []
     record = []
     start_ = 0
-    if len(strack_nums) == 0:
+    if len(strack_nums) == 0 or len(matches)==0:
         u_detection = [ i for i in range(len(keep_nums))]
         return np.array(results), u_track ,u_detection,record
     for _ in range(len(strack_nums)):
@@ -1564,6 +1562,7 @@ def conform(strack_nums,keep_nums,matches):
         is_betweens=[]
         se=[]
         start = 0
+        start_ = end_ 
         for i in range(len(keep_nums)):
             end = start+keep_nums[i]
             se.append([start,end])#左闭右开
@@ -1576,7 +1575,7 @@ def conform(strack_nums,keep_nums,matches):
             dets_target = dets_target_[is_between,:]-[start_,se[out][0]]
             record.append(dets_target)
             results.append([_,out])
-        start_ = end_ 
+        
     results = np.array(results)
     if len(results) == 0:
         return results, u_track ,u_detection,record

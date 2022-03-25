@@ -47,6 +47,9 @@ class STrack_f5(BaseTrack):
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
+    def monitor(self,nums=None):
+
+
 
     def update_features(self, feat,nums=None):
         """
