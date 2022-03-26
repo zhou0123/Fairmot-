@@ -71,16 +71,17 @@ class STrack_f5(BaseTrack):
         else:
             # 先做相似度的计算，然后决定vstack还是update
             cost_matrix = np.maximum(0.0, cdist(self.feat_pool, not_selected, 'cosine'))
+           
             matches, u_pool, u_not_selected = matching.linear_assignment(cost_matrix, thresh=0.4)
-            
-            pool , nselected = matches[:,0],matches[:,1]
+            if len(matches)!=0:
+                pool , nselected = matches[:,0],matches[:,1]
 
-            self.feat_pool[pool,:] = self.alpha * self.feat_pool[pool,:] + (1 - self.alpha) * not_selected[nselected,:]
+                self.feat_pool[pool,:] = self.alpha * self.feat_pool[pool,:] + (1 - self.alpha) * not_selected[nselected,:]
+                self.add_feat[pool,1]+=1
             loc1 = np.arange(len(u_not_selected))+len(self.feat_pool)
             nums1 = np.zeros(len(loc1))
             sub_add = np.vstack((loc1,nums1,nums1)).T
             self.feat_pool = np.vstack((self.feat_pool,not_selected[u_not_selected,:]))
-            self.add_feat[pool,1]+=1
             self.add_feat[u_pool,1]+=1
             self.add_feat = np.vstack((self.add_feat,sub_add))
 
@@ -134,6 +135,8 @@ class STrack_f5(BaseTrack):
         remain = np.where(self.index_feat[:,1]<5)[0]
         self.index_feat = self.index_feat[remain,:]
         self.index_feat[:,0] = np.arange(len(self.index_feat))
+        # print(self.index_feat.shape)
+        # print(self.smooth_feat.shape)
         self.smooth_feat = self.smooth_feat[remain,:]
 
         
@@ -202,6 +205,9 @@ class STrack_f5(BaseTrack):
 
         #self.update_features(new_track.curr_feat[record[:,1],:],nums=record[:,0])
         self.smooth_feat = new_track.curr_feat
+        loc = np.arange(len(self.smooth_feat))
+        num = np.zeros(len(self.smooth_feat))
+        self.index_feat = np.vstack((loc,num)).T.astype(int)
         self.tracklet_len = 0
         self.state = TrackState.Tracked
         self.is_activated = True
