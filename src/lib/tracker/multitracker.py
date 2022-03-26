@@ -1562,6 +1562,7 @@ def conform(strack_nums,keep_nums,matches):
         is_betweens=[]
         se=[]
         start = 0
+        start__ = start_
         start_ = end_ 
         for i in range(len(keep_nums)):
             end = start+keep_nums[i]
@@ -1572,7 +1573,7 @@ def conform(strack_nums,keep_nums,matches):
         out = is_betweens.index(max(is_betweens))
         if max(is_betweens)>keep_nums[out]/2:
             is_between = dets_target.between(se[out][0],se[out][1]-1)
-            dets_target = dets_target_[is_between,:]-[start_,se[out][0]]
+            dets_target = dets_target_[is_between,:]-[start__,se[out][0]]
             record.append(dets_target)
             results.append([_,out])
         

@@ -49,7 +49,7 @@ class STrack_f5(BaseTrack):
 
         self.smooth_feat = None
         self.feat_pool =None
-        self.temp_feat = temp_feat
+        self.new_feat = None
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
@@ -59,7 +59,7 @@ class STrack_f5(BaseTrack):
         f_nums : 未选上的feature的索引
         """
 
-        not_selected = self.temp_feat[f_nums,:]
+        not_selected = self.new_feat[f_nums,:]
         ln = np.linalg.norm(not_selected,axis=1).reshape(-1,1)
         not_selected /= ln
 
@@ -67,7 +67,7 @@ class STrack_f5(BaseTrack):
             self.feat_pool = not_selected
             loc = np.arange(len(self.feat_pool))
             nums = np.zeros(len(self.feat_pool))
-            self.add_feat = np.vstack((loc,nums,nums)).T
+            self.add_feat = np.vstack((loc,nums,nums)).T.astype(int)
         else:
             # 先做相似度的计算，然后决定vstack还是update
             cost_matrix = np.maximum(0.0, cdist(self.feat_pool, not_selected, 'cosine'))
@@ -90,15 +90,22 @@ class STrack_f5(BaseTrack):
             self.smooth_feat = np.vstack((self.smooth_feat,self.feat_pool[add,:]))
             add = set(add)
             all_ = set(np.arange(len(self.add_feat)))
-            leave = np.array(list(add^all_))
+            leave = np.array(list(add^all_)).astype(int)
             self.add_feat = self.add_feat[leave,:]
 
             #删除feat_pool
             delete = np.where(self.add_feat[:,2]>5)[0]
             delete = set(delete)
             all_ = set(np.arange(len(self.add_feat)))
-            leave = np.array(list(delete^all_))
-            self.add_feat = self.add_feat[leave,:]
+            leave = np.array(list(delete^all_)).astype(int)
+            self.add_feat = self.add_feat[leave,:].astype(int)
+            if len(self.add_feat) == 0:
+                self.feat_pool =None
+                return
+            # print("aqa"*10)
+            # print(self.feat_pool.shape)
+            # print(self.add_feat.shape)
+            # print(self.add_feat)
             self.feat_pool = self.feat_pool[self.add_feat[:,0],:]
             self.add_feat[:,0] = np.arange(len(self.add_feat))
 
@@ -109,8 +116,10 @@ class STrack_f5(BaseTrack):
         
         loc = set(self.index_feat[:,0])
         nums = set (nums)
-        no_appear  = np.array(list(loc ^ nums))
-
+        # print(loc)
+        # print(nums)
+        no_appear  = np.array(list(loc ^ nums)).astype(int)
+        # print(no_appear)
         self.index_feat[no_appear,1]+=1
         
         #删除的环节
@@ -133,7 +142,7 @@ class STrack_f5(BaseTrack):
             self.smooth_feat = feat
             loc = np.arange(len(self.smooth_feat))
             num = np.zeros(len(self.smooth_feat))
-            self.index_feat = np.vstack((loc,num)).T
+            self.index_feat = np.vstack((loc,num)).T.astype(int)
         else:
             self.smooth_feat[nums,:] = self.alpha * self.smooth_feat[nums,:] + (1 - self.alpha) * feat
         self.features.append(feat)
@@ -212,10 +221,11 @@ class STrack_f5(BaseTrack):
 
         self.score = new_track.score
         if update_feature:
+            self.new_feat=new_track.curr_feat
             self.update_features(new_track.curr_feat[record[:,1],:],record[:,0])
             selected = set(record[:,1])
-            all_ = set(np.arange(eln(new_track.curr_feat)))
-            f_nums = np.array(list(selected^all_))
+            all_ = set(np.arange(len(new_track.curr_feat)))
+            f_nums = np.array(list(selected^all_)).astype(int)
             self.add_new_features(f_nums)
 
     @property
