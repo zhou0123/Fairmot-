@@ -44,12 +44,30 @@ class STrack_f5(BaseTrack):
         self.tracklet_len = 0
 
         self.smooth_feat = None
+        self.index_feat = None
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
     def monitor(self,nums=None):
 
+        if self.smooth_feat is None:
+            return
+        
+        loc = set(self.index_feat[:,0])
+        nums = set (nums)
 
+        no_appear  = np.array(list(loc ^ nums))
+
+        self.index_feat[no_appear,1]+=1
+        
+        #删除的环节
+
+        remain = np.where(self.index_feat[:,1]<5)[0]
+        self.index_feat = self.index_feat[remain,:]
+        self.index_feat[:,0] = np.arange(len(self.index_feat))
+        self.smooth_feat = self.smooth_feat[remain,:]
+
+        
 
     def update_features(self, feat,nums=None):
         """
@@ -60,6 +78,9 @@ class STrack_f5(BaseTrack):
         self.curr_feat = feat
         if self.smooth_feat is None:
             self.smooth_feat = feat
+            loc = np.arange(len(self.smooth_feat))
+            num = np.zeros(len(self.smooth_feat))
+            self.index_feat = np.vstack((loc,num)).T
         else:
             self.smooth_feat[nums,:] = self.alpha * self.smooth_feat[nums,:] + (1 - self.alpha) * feat
         self.features.append(feat)
