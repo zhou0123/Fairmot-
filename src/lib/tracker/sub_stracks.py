@@ -87,7 +87,13 @@ class STrack_f5(BaseTrack):
             #增加到smooth_feat
 
             add = np.where(self.add_feat[:,1]>5)[0]
+            loc2 = np.arange(len(add))+len(self.smooth_feat)
+            nums2= np.zeros(len(loc2))
+            sub_add2 = np.vstack((loc2,nums2)).T
+            self.index_feat=np.vstack((self.index_feat,sub_add2))
             self.smooth_feat = np.vstack((self.smooth_feat,self.feat_pool[add,:]))
+            
+            
             add = set(add)
             all_ = set(np.arange(len(self.add_feat)))
             leave = np.array(list(add^all_)).astype(int)
@@ -116,6 +122,7 @@ class STrack_f5(BaseTrack):
         
         loc = set(self.index_feat[:,0])
         nums = set (nums)
+        # print("self.smooth_feat.shape",self.smooth_feat.shape)
         # print(loc)
         # print(nums)
         no_appear  = np.array(list(loc ^ nums)).astype(int)
