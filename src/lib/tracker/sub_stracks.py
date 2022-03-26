@@ -135,9 +135,15 @@ class STrack_f5(BaseTrack):
         remain = np.where(self.index_feat[:,1]<5)[0]
         self.index_feat = self.index_feat[remain,:]
         self.index_feat[:,0] = np.arange(len(self.index_feat))
-        # print(self.index_feat.shape)
-        # print(self.smooth_feat.shape)
+        
+        
         self.smooth_feat = self.smooth_feat[remain,:]
+        if self.index_feat.shape[0] != self.smooth_feat.shape[0]:
+
+            # import pdb
+            # pdb.set_trace()
+            print("aqa"*10)
+
 
         
 
