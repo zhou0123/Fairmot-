@@ -104,7 +104,7 @@ class STrack_f5(BaseTrack):
 
     def monitor(self,nums=None):
 
-        if self.smooth_feat is None:
+        if nums is None:
             return
         
         loc = set(self.index_feat[:,0])
@@ -143,6 +143,8 @@ class STrack_f5(BaseTrack):
         else:
             ln = np.linalg.norm(self.smooth_feat[nums,:],axis=1).reshape(-1,1)
             self.smooth_feat[nums,:] /= ln
+        self.monitor(nums)
+            
 
     def predict(self):
         mean_state = self.mean.copy()
@@ -211,6 +213,10 @@ class STrack_f5(BaseTrack):
         self.score = new_track.score
         if update_feature:
             self.update_features(new_track.curr_feat[record[:,1],:],record[:,0])
+            selected = set(record[:,1])
+            all_ = set(np.arange(eln(new_track.curr_feat)))
+            f_nums = np.array(list(selected^all_))
+            self.add_new_features(f_nums)
 
     @property
     def tlwh(self):
