@@ -45,9 +45,41 @@ class STrack_f5(BaseTrack):
 
         self.smooth_feat = None
         self.index_feat = None
+        self.add_feat = None
+        self.feat_pool =None
+        self.temp_feat = temp_feat
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
+    def add_new_features(self,f_nums = None):
+        
+        """
+        f_nums : 未选上的feature的索引
+        """
+
+        not_selected = self.temp_feat[f_nums,:]
+        ln = np.linalg.norm(not_selected,axis=1).reshape(-1,1)
+        not_selected /= ln
+
+        if self.feat_pool is None:
+            self.feat_pool = not_selected
+        
+        else:
+            # 先做相似度的计算，然后决定vstack还是update
+            cost_matrix = np.maximum(0.0, cdist(self.feat_pool, not_selected, 'cosine'))
+            matches, u_pool, u_not_selected = matching.linear_assignment(cost_matrix, thresh=0.4)
+            
+            pool , nselected = matches[:,0],matches[:,1]
+
+            self.feat_pool[pool,:] = self.alpha * self.feat_pool[pool,:] + (1 - self.alpha) * not_selected[nselected,:]
+            self.feat_pool = np.vstack((self.feat_pool,not_selected[u_not_selected,:]))
+
+
+
+
+
+
+
     def monitor(self,nums=None):
 
         if self.smooth_feat is None:
@@ -55,7 +87,6 @@ class STrack_f5(BaseTrack):
         
         loc = set(self.index_feat[:,0])
         nums = set (nums)
-
         no_appear  = np.array(list(loc ^ nums))
 
         self.index_feat[no_appear,1]+=1
