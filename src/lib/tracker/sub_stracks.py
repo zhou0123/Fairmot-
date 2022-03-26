@@ -43,9 +43,11 @@ class STrack_f5(BaseTrack):
         self.score = score
         self.tracklet_len = 0
 
-        self.smooth_feat = None
+        
         self.index_feat = None
-        self.add_feat = None
+        self.add_feat = None # 位置 匹配 未匹配
+
+        self.smooth_feat = None
         self.feat_pool =None
         self.temp_feat = temp_feat
         self.update_features(temp_feat)
@@ -63,6 +65,10 @@ class STrack_f5(BaseTrack):
 
         if self.feat_pool is None:
             self.feat_pool = not_selected
+            loc = np.arange(len(self.feat_pool))
+            nums = np.zeros(len(self.feat_pool))
+            self.add_feat = np.vstack((loc,nums,nums)).T
+
         
         else:
             # 先做相似度的计算，然后决定vstack还是update
@@ -72,7 +78,38 @@ class STrack_f5(BaseTrack):
             pool , nselected = matches[:,0],matches[:,1]
 
             self.feat_pool[pool,:] = self.alpha * self.feat_pool[pool,:] + (1 - self.alpha) * not_selected[nselected,:]
+            loc1 = np.arange(len(u_not_selected))+len(self.feat_pool)
+            nums1 = np.zeros(len(loc1))
+            sub_add = np.vstack((loc1,nums1,nums1)).T
             self.feat_pool = np.vstack((self.feat_pool,not_selected[u_not_selected,:]))
+            self.add_feat[pool,1]+=1
+            self.add_feat[u_pool,1]+=1
+            self.add_feat = np.vstack((self.add_feat,sub_add))
+
+            #增加到smooth_feat
+
+            add = np.where(self.add_feat[:,1]>5)[0]
+            self.smooth_feat = np.vstack((self.smooth_feat,self.feat_pool[add,:]))
+            add = set(add)
+            all_ = set(np.arange(len(self.add_feat)))
+            leave = np.array(list(add^all_))
+            self.add_feat = self.add_feat[leave,:]
+
+            #删除feat_pool
+            delete = np.where(self.add_feat[:,2]>5)[0]
+            delete = set(delete)
+            all_ = set(np.arange(len(self.add_feat)))
+            leave = np.array(list(delete^all_))
+            self.add_feat = self.add_feat[leave,:]
+            self.feat_pool = self.feat_pool[self.add_feat[:,0],:]
+            self.add_feat[:,0] = np.arange(len(self.add_feat))
+
+
+
+
+
+
+
 
 
 
