@@ -68,8 +68,6 @@ class STrack_f5(BaseTrack):
             loc = np.arange(len(self.feat_pool))
             nums = np.zeros(len(self.feat_pool))
             self.add_feat = np.vstack((loc,nums,nums)).T
-
-        
         else:
             # 先做相似度的计算，然后决定vstack还是update
             cost_matrix = np.maximum(0.0, cdist(self.feat_pool, not_selected, 'cosine'))
@@ -103,19 +101,6 @@ class STrack_f5(BaseTrack):
             self.add_feat = self.add_feat[leave,:]
             self.feat_pool = self.feat_pool[self.add_feat[:,0],:]
             self.add_feat[:,0] = np.arange(len(self.add_feat))
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def monitor(self,nums=None):
 
