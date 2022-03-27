@@ -1590,6 +1590,11 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
 
         end = strack_nums[i]+start
         track_where = np.where((matches[:,0]>=start)& (matches[:,0]<end))[0]
+        if len(track_where)==0:
+            all_.extend([np.inf]*(len(keep_nums)))
+            start = end
+            record_all.append([[]*len(keep_nums)])
+            continue
         start = end
         start_ = 0 
         record_sub = []
@@ -1606,8 +1611,10 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
             record_sub.append(re_)
 
             k1 =k1[keep_where,:]
-
-            num = np.sum(dists[k1[:,0],k1[:,1]])/len(k1)
+            if len(k1) == 0:
+                num = np.inf
+            else:
+                num = np.sum(dists[k1[:,0],k1[:,1]])/len(k1)
             #num = min(dists[k1[:,0],k1[:,1]])
 
             all_.append(num) 
