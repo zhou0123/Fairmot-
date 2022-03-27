@@ -1572,7 +1572,42 @@ def conform(strack_nums,keep_nums,matches):
             continue
         u_detection.append(i)
     return results, u_track ,u_detection,record
-        
+
+def conform_avg(strack_nums,keep_nums,matches,dists):
+
+    start = 0
+    all_ = []
+    for i in range(len(strack_nums)):
+
+        end = strack_nums[i]
+        track_where = np.where((matches[:,0]>=start)& (matches[:,0]<end))[0]
+        start_ = 0 
+
+        for j in range(len(keep_nums)):
+            end_ = keep_nums[j]
+
+            k1 = matches[track_where,:]
+
+            keep_where = np.where((k1[:,1]>=start_)&(k1[:,1]<end_))[0]
+
+            k1 =k1[keep_where,:]
+
+            num = np.sum(dists[k1[:,0],k1[:,1]])/len(k1)
+
+            all_.append(num)
+    
+    all_ = np.array(all_).reshape(len(strack_nums,len(keep_nums)))
+
+    return all_
+
+
+
+
+
+            
+
+
+
     
 
     
