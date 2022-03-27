@@ -138,14 +138,7 @@ class STrack_f5(BaseTrack):
         
         
         self.smooth_feat = self.smooth_feat[remain,:]
-        if self.index_feat.shape[0] != self.smooth_feat.shape[0]:
-
-            # import pdb
-            # pdb.set_trace()
-            print("aqa"*10)
-
-
-        
+       
 
     def update_features(self, feat,nums=None):
         """

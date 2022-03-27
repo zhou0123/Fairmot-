@@ -575,23 +575,6 @@ class JDETracker(object):
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         # u_detection 42 其他为0
         matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
-        # print("Aqa"*10)
-       
-        # lis_=[]
-        # lis_1=[]
-        # start=0
-        # for i in keep_nums:
-        #     lis_.append(start)
-        #     start+=i
-        # start=0
-        # for i in strack_nums:
-        #     lis_1.append(start)
-        #     start+=i
-        # print("keep_nums",lis_)
-        # print("strack_nums",lis_1)
-        #print(matches.shape)
-        #到这里！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-        #for itracked, idet in matches:
         for i in range(len(record)):
             itracked, idet = matches[i]
             track = strack_pool[itracked]
@@ -1571,7 +1554,7 @@ def conform(strack_nums,keep_nums,matches):
             is_betweens.append(np.sum(np.array(is_between)))
             start = end
         out = is_betweens.index(max(is_betweens))
-        if max(is_betweens)>keep_nums[out]/2:
+        if max(is_betweens)>len(track_where)/2:
             is_between = dets_target.between(se[out][0],se[out][1]-1)
             dets_target = dets_target_[is_between,:]-[start__,se[out][0]]
             record.append(dets_target)
