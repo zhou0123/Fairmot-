@@ -236,6 +236,9 @@ class STrack_f5(BaseTrack):
         self.score = new_track.score
         if update_feature:
             self.new_feat=new_track.curr_feat
+            #print("aqa"*10)
+            record = np.array(record)
+            #print(record)
             self.update_features(new_track.curr_feat[record[:,1],:],record[:,0])
             selected = set(record[:,1])
             all_ = set(np.arange(len(new_track.curr_feat)))

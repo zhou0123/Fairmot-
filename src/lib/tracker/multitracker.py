@@ -614,7 +614,8 @@ class JDETracker(object):
         detections = [detections[i] for i in u_detection]
         dists,strack_nums,keep_nums= matching.embedding_distance_f5(unconfirmed, detections)
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.4)
-        matches, u_unconfirmed, u_detection,record = conform(strack_nums,keep_nums,matches)
+        #matches, u_unconfirmed, u_detection,record = conform(strack_nums,keep_nums,matches)
+        matches, u_unconfirmed, u_detection,record=conform_avg(strack_nums,keep_nums,matches,dists)
         
         for i in range(len(record)):
             itracked, idet = matches[i]
@@ -1585,7 +1586,7 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
     u_detection = []
     if len(strack_nums) == 0 or len(matches)==0:
         u_detection = [ i for i in range(len(keep_nums))]
-        return np.array(results), u_track ,u_detection,record
+        return np.array([]), u_track ,u_detection,record
     for i in range(len(strack_nums)):
 
         end = strack_nums[i]+start
@@ -1593,12 +1594,13 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
         if len(track_where)==0:
             all_.extend([np.inf]*(len(keep_nums)))
             start = end
-            record_all.append([[]*len(keep_nums)])
+            record_all.append([np.array([]).reshape(0,2)]*len(keep_nums))
             continue
+        start__ = start
         start = end
         start_ = 0 
         record_sub = []
-        track_where_ = track_where - start
+        #track_where_ = track_where - start
         for j in range(len(keep_nums)):
             end_ = keep_nums[j]+start_
 
@@ -1606,23 +1608,24 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
 
             keep_where = np.where((k1[:,1]>=start_)&(k1[:,1]<end_))[0]
 
-            keep_where_ = keep_where - start_
-            re_ = np.vstack((track_where_,keep_where_)).T
-            record_sub.append(re_)
+            #keep_where_ = keep_where - start_
+            
 
             k1 =k1[keep_where,:]
+            record_sub.append(np.array(k1-[start__,start_]))
             if len(k1) == 0:
                 num = np.inf
             else:
-                num = np.sum(dists[k1[:,0],k1[:,1]])/len(k1)
-            #num = min(dists[k1[:,0],k1[:,1]])
+                #num = np.sum(dists[k1[:,0],k1[:,1]])/len(k1)
+                num = min(dists[k1[:,0],k1[:,1]])
 
             all_.append(num) 
 
             start_ = end_
+        #print(record_sub)
         record_all.append(record_sub)
     
-    all_ = np.array(all_).reshape(len(strack_nums,len(keep_nums)))
+    all_ = np.array(all_).reshape(len(strack_nums),len(keep_nums))
     matches = []
     cost_ ,s,k = lap.lapjv(all_,extend_cost=True, cost_limit=0.4)
     for ix, mx in enumerate(s):
@@ -1635,7 +1638,13 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
 
     x = np.where(s!=-1)[0]
     s_ = s[x]
-    record_all = np.array(record_all)
+    #print(record_all)
+    record_all = np.array(record_all,dtype=object)
+    
+    # for i in np.arange(len(record_all))[x]:
+
+    #     record.append(record_all[record_all[i]][s_[i]])
+
     record = record_all[np.arange(len(record_all))[x],s_].tolist()
     return matches, u_track ,u_detection,record
 
