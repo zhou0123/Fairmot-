@@ -31,6 +31,8 @@ from tracking_utils import kalman_filter
 from tracker import sub_stracks
 from .sub_stracks import STrack_f5
 import pandas as pd
+import lap
+
 
 
 
@@ -1577,18 +1579,31 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
 
     start = 0
     all_ = []
+    record_all = []
+    record = []
+    u_track= []
+    u_detection = []
+    if len(strack_nums) == 0 or len(matches)==0:
+        u_detection = [ i for i in range(len(keep_nums))]
+        return np.array(results), u_track ,u_detection,record
     for i in range(len(strack_nums)):
 
-        end = strack_nums[i]
+        end = strack_nums[i]+start
         track_where = np.where((matches[:,0]>=start)& (matches[:,0]<end))[0]
+        start = end
         start_ = 0 
-
+        record_sub = []
+        track_where_ = track_where - start
         for j in range(len(keep_nums)):
-            end_ = keep_nums[j]
+            end_ = keep_nums[j]+start_
 
             k1 = matches[track_where,:]
 
             keep_where = np.where((k1[:,1]>=start_)&(k1[:,1]<end_))[0]
+
+            keep_where_ = keep_where - start_
+            re_ = np.vstack((track_where_,keep_where_)).T
+            record_sub.append(re_)
 
             k1 =k1[keep_where,:]
 
@@ -1596,10 +1611,26 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
             #num = min(dists[k1[:,0],k1[:,1]])
 
             all_.append(num) 
+
+            start_ = end_
+        record_all.append(record_sub)
     
     all_ = np.array(all_).reshape(len(strack_nums,len(keep_nums)))
+    matches = []
+    cost_ ,s,k = lap.lapjv(all_,extend_cost=True, cost_limit=0.4)
+    for ix, mx in enumerate(s):
+        if mx >= 0:
+            matches.append([ix, mx])
+    u_track = np.where(s < 0)[0]
+    u_detection = np.where(k < 0)[0]
+    matches = np.asarray(matches)
 
-    return all_
+
+    x = np.where(s!=-1)[0]
+    s_ = s[x]
+    record_all = np.array(record_all)
+    record = record_all[np.arange(len(record_all))[x],s_].tolist()
+    return matches, u_track ,u_detection,record
 
 
 

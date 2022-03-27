@@ -28,6 +28,8 @@ from cython_bbox import bbox_overlaps as bbox_ious
 from matplotlib import pyplot as plt
 import copy
 from tracking_utils import kalman_filter
+import lap
+
 class STrack_f5(BaseTrack):
     shared_kalman = KalmanFilter()
     def __init__(self, tlwh, score, temp_feat, buffer_size=30):
