@@ -576,7 +576,8 @@ class JDETracker(object):
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums) # 选择最高分box的作为惩罚相加
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         # u_detection 42 其他为0
-        matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
+        #matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
+        matches, u_track, u_detection,record=conform_avg(strack_nums,keep_nums,matches,dists)
         for i in range(len(record)):
             itracked, idet = matches[i]
             track = strack_pool[itracked]
