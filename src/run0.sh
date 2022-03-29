@@ -8,4 +8,4 @@ CUDA_VISIBLE_DEVICES=0 python track.py mot --load_model /home/zhouchengyu/paper1
 CUDA_VISIBLE_DEVICES=0 python track.py mot --load_model /home/zhouchengyu/paper1/others/fairmot_dla34.pth --conf_thres 0.1 --val_mot20 True --experiments mot20_test_val_0.1_0.4 --chance test4 --score 0.4
 CUDA_VISIBLE_DEVICES=0 python track.py mot --load_model /home/zhouchengyu/paper1/others/fairmot_dla34.pth --conf_thres 0.1 --val_mot20 True --experiments mot20_test_val_0.1_0.5 --chance test4 --score 0.5
 
-CUDA_VISIBLE_DEVICES=1 python track.py mot --load_model /home/zhouchengyu/paper1/others/fairmot_dla34.pth --conf_thres 0.2 --val_mot20 True --experiments mot20_avg_0.5 --chance test5 --Threshold 0.5
+CUDA_VISIBLE_DEVICES=2 python track.py mot --load_model /home/zhouchengyu/paper1/others/fairmot_dla34.pth --conf_thres 0.2 --val_mot20 True --experiments mot20_0.2_avg_0.4 --chance test5 --Threshold 0.4
