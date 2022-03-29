@@ -126,6 +126,9 @@ class opts(object):
     self.parser.add_argument('--chance', type=str, default="orign", help='')
     self.parser.add_argument('--score', type=float, default=0.5, help='')
     self.parser.add_argument('--Threshold', type=float, default=0.7, help='')
+    self.parser.add_argument('--add_TF', type=int, default=1, help='')
+    self.parser.add_argument('--del_TF', type=int, default=5, help='')
+
 
     self.parser.add_argument('--output-root', type=str, default='../demos', help='expected output root path')
 

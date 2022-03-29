@@ -32,9 +32,10 @@ import lap
 
 class STrack_f5(BaseTrack):
     shared_kalman = KalmanFilter()
-    def __init__(self, tlwh, score, temp_feat, buffer_size=30):
+    def __init__(self,opt,tlwh, score, temp_feat, buffer_size=30):
 
         # wait activate
+        self.opt = opt
         self._tlwh = np.asarray(tlwh[0,:], dtype=np.float)
 
         self._tlwhs = np.asarray(tlwh, dtype=np.float)
@@ -89,7 +90,7 @@ class STrack_f5(BaseTrack):
 
             #增加到smooth_feat
 
-            add = np.where(self.add_feat[:,1]>5)[0]
+            add = np.where(self.add_feat[:,1]>self.opt.add_TF)[0]
             loc2 = np.arange(len(add))+len(self.smooth_feat)
             nums2= np.zeros(len(loc2))
             sub_add2 = np.vstack((loc2,nums2)).T
@@ -103,7 +104,7 @@ class STrack_f5(BaseTrack):
             self.add_feat = self.add_feat[leave,:]
 
             #删除feat_pool
-            delete = np.where(self.add_feat[:,2]>5)[0]
+            delete = np.where(self.add_feat[:,2]>self.opt.del_TF)[0]
             delete = set(delete)
             all_ = set(np.arange(len(self.add_feat)))
             leave = np.array(list(delete^all_)).astype(int)
@@ -125,20 +126,13 @@ class STrack_f5(BaseTrack):
         
         loc = set(self.index_feat[:,0])
         nums = set (nums)
-        # print("self.smooth_feat.shape",self.smooth_feat.shape)
-        # print(loc)
-        # print(nums)
         no_appear  = np.array(list(loc ^ nums)).astype(int)
-        # print(no_appear)
         self.index_feat[no_appear,1]+=1
-        
         #删除的环节
 
         remain = np.where(self.index_feat[:,1]<5)[0]
         self.index_feat = self.index_feat[remain,:]
         self.index_feat[:,0] = np.arange(len(self.index_feat))
-        
-        
         self.smooth_feat = self.smooth_feat[remain,:]
        
 
@@ -156,7 +150,7 @@ class STrack_f5(BaseTrack):
             self.index_feat = np.vstack((loc,num)).T.astype(int)
         else:
             self.smooth_feat[nums,:] = self.alpha * self.smooth_feat[nums,:] + (1 - self.alpha) * feat
-        self.features.append(feat)
+        #self.features.append(feat)
         if nums is None:
             ln = np.linalg.norm(self.smooth_feat,axis=1).reshape(-1,1)
             self.smooth_feat /= ln            
@@ -199,16 +193,17 @@ class STrack_f5(BaseTrack):
         self.frame_id = frame_id
         self.start_frame = frame_id
 
-    def re_activate(self, new_track, frame_id, record,new_id=False):
+    def re_activate(self, new_track, frame_id, record,new_id=False,update_feature= False):
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
-
-        #self.update_features(new_track.curr_feat[record[:,1],:],nums=record[:,0])
-        self.smooth_feat = new_track.curr_feat
-        loc = np.arange(len(self.smooth_feat))
-        num = np.zeros(len(self.smooth_feat))
-        self.index_feat = np.vstack((loc,num)).T.astype(int)
+        if update_feature:
+            record = np.array(record)
+            self.update_features(new_track.curr_feat[record[:,1],:],record[:,0])
+        # self.smooth_feat = new_track.curr_feat
+        # loc = np.arange(len(self.smooth_feat))
+        # num = np.zeros(len(self.smooth_feat))
+        # self.index_feat = np.vstack((loc,num)).T.astype(int)
         self.tracklet_len = 0
         self.state = TrackState.Tracked
         self.is_activated = True
@@ -236,9 +231,7 @@ class STrack_f5(BaseTrack):
         self.score = new_track.score
         if update_feature:
             self.new_feat=new_track.curr_feat
-            #print("aqa"*10)
             record = np.array(record)
-            #print(record)
             self.update_features(new_track.curr_feat[record[:,1],:],record[:,0])
             selected = set(record[:,1])
             all_ = set(np.arange(len(new_track.curr_feat)))

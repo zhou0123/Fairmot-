@@ -531,7 +531,7 @@ class JDETracker(object):
         #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
 
         #remain_inds = dets_all[:, 4] > self.opt.conf_thres #0.2 
-        remain_inds = dets_all[:, 4] > 0.3
+        remain_inds = dets_all[:, 4] > 0.2
         #sum(remain_inds) 378
         dets_all = dets_all[remain_inds]
         tracks_features = tracks_features[remain_inds]
@@ -551,7 +551,7 @@ class JDETracker(object):
         '''
         if len(keep) > 0:
             '''Detections'''
-            detections = [STrack_f5(STrack_f5.tlbr_to_tlwh_f5(tlbrs[:,:4]), tlbrs[0,4], f, 30) for
+            detections = [STrack_f5(self.opt,STrack_f5.tlbr_to_tlwh_f5(tlbrs[:,:4]), tlbrs[0,4], f, 30) for
                           (tlbrs, f) in zip(keep_dets, keep_features)]
         else:
             detections = []
@@ -567,16 +567,14 @@ class JDETracker(object):
         ''' Step 2: First association, with embedding'''
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
         # Predict the current location with KF
-        #for strack in strack_pool:
-            #strack.predict()
         STrack.multi_predict(strack_pool)
         dists,strack_nums,keep_nums= matching.embedding_distance_f5(strack_pool, detections)
-        #print("len(keep)",len(keep))
-        #dists = matching.iou_distance(strack_pool, detections)
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums) # 选择最高分box的作为惩罚相加
+        #非avg
+        # matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        # matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
+        #非avg
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
-        # u_detection 42 其他为0
-        #matches, u_track, u_detection,record = conform(strack_nums,keep_nums,matches)
         matches, u_track, u_detection,record=conform_avg(strack_nums,keep_nums,matches,dists)
         for i in range(len(record)):
             itracked, idet = matches[i]
@@ -594,7 +592,6 @@ class JDETracker(object):
         detections = [detections[i] for i in u_detection]
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
         dists = matching.iou_distance(r_tracked_stracks, detections)
-        #print("iou.shape",dists.shape)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
@@ -603,7 +600,7 @@ class JDETracker(object):
                 track.update(det, self.frame_id,update_feature=False)
                 activated_starcks.append(track)
             else:
-                track.re_activate(det, self.frame_id,new_id=False)
+                track.re_activate(det, self.frame_id,new_id=False,update_feature=False)
                 refind_stracks.append(track)
         for it in u_track:
             track = r_tracked_stracks[it]
@@ -1576,9 +1573,7 @@ def conform(strack_nums,keep_nums,matches):
             continue
         u_detection.append(i)
     return results, u_track ,u_detection,record
-
 def conform_avg(strack_nums,keep_nums,matches,dists):
-
     start = 0
     all_ = []
     record_all = []
@@ -1589,7 +1584,6 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
         u_detection = [ i for i in range(len(keep_nums))]
         return np.array([]), u_track ,u_detection,record
     for i in range(len(strack_nums)):
-
         end = strack_nums[i]+start
         track_where = np.where((matches[:,0]>=start)& (matches[:,0]<end))[0]
         if len(track_where)==0:
@@ -1601,17 +1595,10 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
         start = end
         start_ = 0 
         record_sub = []
-        #track_where_ = track_where - start
         for j in range(len(keep_nums)):
             end_ = keep_nums[j]+start_
-
             k1 = matches[track_where,:]
-
             keep_where = np.where((k1[:,1]>=start_)&(k1[:,1]<end_))[0]
-
-            #keep_where_ = keep_where - start_
-            
-
             k1 =k1[keep_where,:]
             record_sub.append(np.array(k1-[start__,start_]))
             if len(k1) == 0:
@@ -1619,11 +1606,8 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
             else:
                 #num = np.sum(dists[k1[:,0],k1[:,1]])/len(k1)
                 num = min(dists[k1[:,0],k1[:,1]])
-
             all_.append(num) 
-
             start_ = end_
-        #print(record_sub)
         record_all.append(record_sub)
     
     all_ = np.array(all_).reshape(len(strack_nums),len(keep_nums))
@@ -1635,17 +1619,9 @@ def conform_avg(strack_nums,keep_nums,matches,dists):
     u_track = np.where(s < 0)[0]
     u_detection = np.where(k < 0)[0]
     matches = np.asarray(matches)
-
-
     x = np.where(s!=-1)[0]
     s_ = s[x]
-    #print(record_all)
     record_all = np.array(record_all,dtype=object)
-    
-    # for i in np.arange(len(record_all))[x]:
-
-    #     record.append(record_all[record_all[i]][s_[i]])
-
     record = record_all[np.arange(len(record_all))[x],s_].tolist()
     return matches, u_track ,u_detection,record
 
