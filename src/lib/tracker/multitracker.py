@@ -531,7 +531,7 @@ class JDETracker(object):
         #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
 
         #remain_inds = dets_all[:, 4] > self.opt.conf_thres #0.2 
-        remain_inds = dets_all[:, 4] > 0.2
+        remain_inds = dets_all[:, 4] > 0.3
         #sum(remain_inds) 378
         dets_all = dets_all[remain_inds]
         tracks_features = tracks_features[remain_inds]
@@ -569,6 +569,7 @@ class JDETracker(object):
         # Predict the current location with KF
         STrack.multi_predict(strack_pool)
         dists,strack_nums,keep_nums= matching.embedding_distance_f5(strack_pool, detections)
+
         dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums) # 选择最高分box的作为惩罚相加
         #非avg
         # matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
@@ -610,9 +611,13 @@ class JDETracker(object):
         #print("len(u_detection)",len(u_detection))
         '''Deal with unconfirmed tracks'''
         detections = [detections[i] for i in u_detection]
-        dists,strack_nums,keep_nums= matching.embedding_distance_f5(unconfirmed, detections)
+        dists1,strack_nums,keep_nums= matching.embedding_distance_f5(unconfirmed, detections)
+        dists = matching.iou_distance_(unconfirmed, detections,dists1,keep_nums,strack_nums)
+        #dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums)
+        
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.4)
         #matches, u_unconfirmed, u_detection,record = conform(strack_nums,keep_nums,matches)
+        
         matches, u_unconfirmed, u_detection,record=conform_avg(strack_nums,keep_nums,matches,dists)
         
         for i in range(len(record)):

@@ -268,6 +268,8 @@ if __name__ == '__main__':
                       MOT20-03
                       MOT20-05
                       '''
+        seqs_str = '''MOT20-05
+                      '''
         data_root = os.path.join(opt.data_dir, 'MOT20/images/train')
     if opt.test_mot20:
         seqs_str = '''MOT20-04

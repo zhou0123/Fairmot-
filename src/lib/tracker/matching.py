@@ -133,6 +133,37 @@ def iou_distance(atracks, btracks):
     cost_matrix = 1 - _ious
 
     return cost_matrix
+def iou_distance_(atracks, btracks,cost_matrix,keep_nums,strack_nums,lambda_ = 0.98):
+    """
+    Compute cost based on IoU
+    :type atracks: list[STrack]
+    :type btracks: list[STrack]
+
+    :rtype cost_matrix np.ndarray
+    """
+
+    if (len(atracks)>0 and isinstance(atracks[0], np.ndarray)) or (len(btracks) > 0 and isinstance(btracks[0], np.ndarray)):
+        atlbrs = atracks
+        btlbrs = btracks
+    else:
+        atlbrs = [track.tlbr for track in atracks]
+        btlbrs = [track.tlbr for track in btracks]
+    _ious = ious(atlbrs, btlbrs)
+
+    index1 = np.where(_ious < 0.7)
+    index2 = np.where(_ious>=0.7)
+
+    _ious[index1] = np.inf
+    _ious[index2] = 0.0
+
+    start = 0
+    for row, track in enumerate(atracks):
+
+        gating_distance = _ious[row]
+        gating_distance = np.repeat(gating_distance,keep_nums)
+        cost_matrix[start : start + strack_nums[row]] = lambda_ * cost_matrix[start : start + strack_nums[row]] + (1 - lambda_) * gating_distance
+        start = start + strack_nums[row]
+    return cost_matrix
 
 def embedding_distance_(tracks, detections, ind=None,metric='cosine'):
     """
