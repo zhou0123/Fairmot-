@@ -146,6 +146,16 @@ class STrack(BaseTrack):
             tlwh = STrack.tlbr_to_tlwh(tlbr[0,:4])
             self.mean, self.covariance = self.kalman_filter.update(
                 self.mean, self.covariance, self.tlwh_to_xyah(tlwh))
+    def update_box(self,tlwh,re =False):
+        self.frame_id = frame_id
+        self.tracklet_len += 1
+        if re:
+            self.tracklet_len = 0
+        self.mean, self.covariance = self.kalman_filter.update(
+            self.mean, self.covariance, self.tlwh_to_xyah(tlwh))
+        self.state = TrackState.Tracked
+        self.is_activated = True
+        
 
     def update(self, new_track, frame_id, update_feature=True):
         """
@@ -712,11 +722,25 @@ class JDETracker(object):
                 else:
                     refind_stracks.append(track)
                     track.sub_update(r_features[indx].reshape(-1,),self.frame_id,tlbr1,re=True)
-                
-            
+                continue
+            id_ = track.near_id
+            if id_ is not None:
+                next_track=[track for track in strack_pool if track.track_id =id_ ][0]
+                next_feats = next_track.around_feats
+                dists = np.maximum(0.0, cdist(track.around_feats, next_feats, 'cosine'))
+                if np.sum(dists)/(dists.shape[0]*dists.shape[1]) <0.4:
 
-            else:
-                u_track.append(i)
+                    if track.state == TrackState.Tracked:
+                        track.update_box(next_track.tlwh)
+                        activated_starcks.append(track)
+                        
+                    else:
+                        track.update_box(next_track.tlwh,re=True)
+                        refind_stracks.append(track)
+                    continue
+            
+           
+            u_track.append(i)
         #add new end
         for it in u_track:
             track = r_tracked_stracks_[it]
