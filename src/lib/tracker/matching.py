@@ -150,8 +150,8 @@ def iou_distance_(atracks, btracks,cost_matrix,keep_nums,strack_nums,lambda_ = 0
         btlbrs = [track.tlbr for track in btracks]
     _ious = ious(atlbrs, btlbrs)
 
-    index1 = np.where(_ious < 0.7)
-    index2 = np.where(_ious>=0.7)
+    index1 = np.where(_ious < 0.3)
+    index2 = np.where(_ious>=0.3)
 
     _ious[index1] = np.inf
     _ious[index2] = 0.0
@@ -192,6 +192,51 @@ def embedding_distance_(tracks, detections, ind=None,metric='cosine'):
     track_features = track_features[ind,:,np.arange(nums_)]
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
     return cost_matrix
+def iou_next(tracks,dets_all,tracks_features,H,W):
+    track_det = np.asarray([track.tlbr() for track in tracks],dtype=np.float)
+
+    ious_ = ious(track_det,track_det)
+
+    ious_[np.arange(len(ious_)),np.arange(len(ious_))] = 0
+
+    ind = ious_.argmax(axis=1)
+
+    ind2_ = ious_[np.arange(len(ious_)),ind]>0.8
+
+    ind2 = np.arange(len(ious_))[ind2_]  #第几个track
+    ind = ind[ind2_]
+
+    for ind_,ind2_ in zip(ind,ind2):
+        track = tracks[ind_]
+        near_track = tracks[ind2_]
+
+        track.near_id = near_track.track_id
+        num = track.ind
+        ind_around = np.array([num-2-2*W,num-1-2*W,num-2*W,num+1-2*W,num+2-2*W,\
+            num-2-W,num-1-W,num-W,num+1-W,num+2-W,\
+            num-2,num-1,num,num+1,num+2,\
+            num-2+W,num-1+W,num+W,num+1+W,num+2+W,\
+            num-2+2*W,num-1+2*W,num+2*W,num+1+2*W,num+2+2*W
+            ]).reshape(-1,)
+        ind_around = np.clip(ind_around,0,len(dets_all)-1).astype(int)
+        track.around_feats = tracks_features[ind_around]
+
+        num = near_track.ind
+        ind_around = np.array([num-2-2*W,num-1-2*W,num-2*W,num+1-2*W,num+2-2*W,\
+            num-2-W,num-1-W,num-W,num+1-W,num+2-W,\
+            num-2,num-1,num,num+1,num+2,\
+            num-2+W,num-1+W,num+W,num+1+W,num+2+W,\
+            num-2+2*W,num-1+2*W,num+2*W,num+1+2*W,num+2+2*W
+            ]).reshape(-1,)
+        ind_around = np.clip(ind_around,0,len(dets_all)-1).astype(int)
+        near_track.around_feats = tracks_features[ind_around]
+
+
+
+
+
+
+
 def embedding_distance(tracks, detections, metric='cosine'):
     """
     :param tracks: list[STrack]
@@ -199,6 +244,8 @@ def embedding_distance(tracks, detections, metric='cosine'):
     :param metric:
     :return: cost_matrix np.ndarray
     """
+    id_27 = []
+    id_243 = []
 
     cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float)
     if cost_matrix.size == 0:
@@ -207,6 +254,15 @@ def embedding_distance(tracks, detections, metric='cosine'):
     #for i, track in enumerate(tracks):
         #cost_matrix[i, :] = np.maximum(0.0, cdist(track.smooth_feat.reshape(1,-1), det_features, metric))
     track_features = np.asarray([track.smooth_feat for track in tracks], dtype=np.float)
+    # id_27 = np.asarray([track.smooth_feat for track in tracks if track.track_id == 27], dtype=np.float)
+    # id_243 = np.asarray([track.smooth_feat for track in tracks if track.track_id == 243], dtype=np.float)
+    # if len(id_27) !=0 and len(id_243) !=0:
+    #     print("aqa"*10)
+    #     print("id_27",id_27)
+    #     print("id_243",id_243)
+    #     print("now")
+    #     #print(np.maximum(0.0, cdist(np.split(id_27,16), np.split(id_243,16), 'cosine')))
+    #     print(np.maximum(0.0, cdist(id_27.reshape(1,-1), id_243.reshape(1,-1), metric)))
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
     return cost_matrix
 

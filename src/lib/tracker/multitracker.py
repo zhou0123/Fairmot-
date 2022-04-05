@@ -38,7 +38,7 @@ import lap
 
 class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
-    def __init__(self, tlwh, score, temp_feat, buffer_size=30):
+    def __init__(self, tlwh, score, temp_feat,ind =None,wh=None,h=None,w=None,buffer_size=30):
 
         # wait activate
         self._tlwh = np.asarray(tlwh, dtype=np.float)
@@ -53,13 +53,27 @@ class STrack(BaseTrack):
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
+        self.h ,self.w = h,w
+        self.ind = ind
+        self.wh = wh 
+        self.around_feats = None
+        self.near_id = None
+
+        self.v = None
+        self.vs = []
 
     def update_features(self, feat):
+        #print("feat",feat.shape)
         feat /= np.linalg.norm(feat)
         self.curr_feat = feat
         if self.smooth_feat is None:
             self.smooth_feat = feat
         else:
+            #if np.maximum(0.0, cdist(self.smooth_feat.reshape(1,-1), feat.reshape(1,-1), 'cosine'))[0][0] >0.5:
+            # print("orgin")
+            # print(np.maximum(0.0, cdist(self.smooth_feat.reshape(1,-1), feat.reshape(1,-1), 'cosine')))
+            # print("now")
+            # print(np.maximum(0.0, cdist(np.split(self.smooth_feat,16), np.split(feat,16), 'cosine')))
             self.smooth_feat = self.alpha * self.smooth_feat + (1 - self.alpha) * feat
         self.features.append(feat)
         self.smooth_feat /= np.linalg.norm(self.smooth_feat)
@@ -101,7 +115,8 @@ class STrack(BaseTrack):
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
-
+        self.ind = new_track.ind
+        self.wh = new_track.wh
         self.update_features(new_track.curr_feat)
         self.tracklet_len = 0
         self.state = TrackState.Tracked
@@ -109,6 +124,28 @@ class STrack(BaseTrack):
         self.frame_id = frame_id
         if new_id:
             self.track_id = self.next_id()
+    def sub_update(self,feat,frame_id,tlbr=None,re=False):
+        self.frame_id = frame_id
+        self.tracklet_len += 1
+        if re:
+            self.tracklet_len =0
+
+        self.is_activated = True
+        self.state = TrackState.Tracked
+        #update_feature
+        feat /= np.linalg.norm(feat)
+        self.curr_feat = feat
+        if self.smooth_feat is None:
+            self.smooth_feat = feat
+        else:
+            self.smooth_feat = self.alpha * self.smooth_feat + (1 - self.alpha) * feat
+        self.features.append(feat)
+        self.smooth_feat /= np.linalg.norm(self.smooth_feat)
+
+        if tlbr is not None:
+            tlwh = STrack.tlbr_to_tlwh(tlbr[0,:4])
+            self.mean, self.covariance = self.kalman_filter.update(
+                self.mean, self.covariance, self.tlwh_to_xyah(tlwh))
 
     def update(self, new_track, frame_id, update_feature=True):
         """
@@ -120,14 +157,14 @@ class STrack(BaseTrack):
         """
         self.frame_id = frame_id
         self.tracklet_len += 1
-
         new_tlwh = new_track.tlwh
+        self.wh = new_track.wh
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
         self.state = TrackState.Tracked
         self.is_activated = True
-
         self.score = new_track.score
+        self.ind = new_track.ind
         if update_feature:
             self.update_features(new_track.curr_feat)
 
@@ -312,7 +349,8 @@ class JDETracker(object):
         self.kalman_filter = KalmanFilter()
 
     def post_process(self, dets, meta):
-        dets = dets.detach().cpu().numpy()
+        if type(dets) is not np.ndarray:
+            dets = dets.detach().cpu().numpy()
         dets = dets.reshape(1, -1, dets.shape[2])
         dets = ctdet_post_process(
             dets.copy(), [meta['c']], [meta['s']],
@@ -497,6 +535,243 @@ class JDETracker(object):
         logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
 
         return output_stracks
+    def update_f6(self, im_blob, img0):
+        self.frame_id += 1
+        activated_starcks = []
+        refind_stracks = []
+        lost_stracks = []
+        removed_stracks = []
+
+        width = img0.shape[1]
+        height = img0.shape[0]
+        inp_height = im_blob.shape[2]
+        inp_width = im_blob.shape[3]
+        c = np.array([width / 2., height / 2.], dtype=np.float32)
+        s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
+        meta = {'c': c, 's': s,
+                'out_height': inp_height // self.opt.down_ratio,
+                'out_width': inp_width // self.opt.down_ratio}
+
+        ''' Step 1: Network forward, get detections & embeddings'''
+        with torch.no_grad():
+            output = self.model(im_blob)[-1]
+            hm = output['hm'].sigmoid_()
+            _,_,H,W = hm.shape
+            wh = output['wh']
+            id_feature = output['id']
+            id_feature = F.normalize(id_feature, dim=1)
+
+            reg = output['reg'] if self.opt.reg_offset else None
+            dets_all= mot_decode_(hm,wh,reg=reg,ltrb=self.opt.ltrb)
+            dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
+            id_feature = _tranpose_and_gather_feat(id_feature, inds)
+            id_feature = id_feature.squeeze(0)
+            id_feature = id_feature.cpu().numpy()
+            tracks_features=F.normalize(output['id'], dim=1).cpu().numpy().squeeze(0).transpose(1,2,0).reshape(-1,128)
+
+        dets = self.post_process(dets, meta)
+        dets = self.merge_outputs([dets])[1]
+
+        dets_all = self.post_process(dets_all, meta)
+        dets_all = self.merge_outputs_([dets_all])[1]
+        #print(W,H)
+
+        #dets_all.shape,tracks_features.shape (41344, 5) (41344, 128)
+        
+        remain_inds = dets[:, 4] > self.opt.conf_thres
+        inds = inds[0][remain_inds].cpu().numpy()
+        hs,ws = inds//H,inds % W
+        dets = dets[remain_inds]
+        id_feature = id_feature[remain_inds]
+        
+        #id_feature=tracks_features[inds]
+
+
+        # vis
+        '''
+        for i in range(0, dets.shape[0]):
+            bbox = dets[i][0:4]
+            cv2.rectangle(img0, (bbox[0], bbox[1]),
+                          (bbox[2], bbox[3]),
+                          (0, 255, 0), 2)
+        cv2.imshow('dets', img0)
+        cv2.waitKey(0)
+        id0 = id0-1
+        '''
+        whs = wh.cpu().numpy().squeeze(0).transpose(1,2,0).reshape(-1,4)
+        if len(dets) > 0:
+            '''Detections'''
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, ind,wh_,h_,w_,30) for
+                          (tlbrs, f,ind,h_,w_,wh_) in zip(dets[:, :5], id_feature,inds,hs,ws,whs)]
+            detections_ = detections
+        else:
+            detections = []
+
+        ''' Add newly detected tracklets to tracked_stracks'''
+        unconfirmed = []
+        tracked_stracks = []  # type: list[STrack]
+        for track in self.tracked_stracks:
+            if not track.is_activated:
+                unconfirmed.append(track)
+            else:
+                tracked_stracks.append(track)
+
+        ''' Step 2: First association, with embedding'''
+        strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
+        #print([track.ind for track in strack_pool if track.track_id == 117])
+        # Predict the current location with KF
+        #for strack in strack_pool:
+            #strack.predict()
+        STrack.multi_predict(strack_pool)
+
+        dists = matching.embedding_distance(strack_pool, detections)
+        #dists = matching.iou_distance(strack_pool, detections)
+        dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        for itracked, idet in matches:
+            track = strack_pool[itracked]
+            det = detections[idet]
+            if track.state == TrackState.Tracked:
+                track.update(detections[idet], self.frame_id)
+                activated_starcks.append(track)
+            else:
+                track.re_activate(det, self.frame_id, new_id=False)
+                refind_stracks.append(track)
+
+        ''' Step 3: Second association, with IOU'''
+        detections = [detections[i] for i in u_detection]
+        r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
+        dists = matching.iou_distance(r_tracked_stracks, detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+
+        for itracked, idet in matches:
+            track = r_tracked_stracks[itracked]
+            det = detections[idet]
+            if track.state == TrackState.Tracked:
+                track.update(det, self.frame_id)
+                activated_starcks.append(track)
+            else:
+                track.re_activate(det, self.frame_id, new_id=False)
+                refind_stracks.append(track)
+        #add new 位置索引
+        r_tracked_stracks_ = [r_tracked_stracks[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
+        hws_index = []
+        u_track = []
+        for i , track in enumerate(r_tracked_stracks_):
+            num = track.ind
+            # ind_around_ = []
+            # x_ ,y_ = 5,5
+            # for i in range(x_):
+            #     i = i - x_//2
+            #     for j in range(y_):
+            #         j = j - y_//2
+            #         ind_around_.append(num+i*W+j)    
+            # ind_around_ = np.array(ind_around_)
+
+            ind_around = np.array([num-2-2*W,num-1-2*W,num-2*W,num+1-2*W,num+2-2*W,\
+            num-2-W,num-1-W,num-W,num+1-W,num+2-W,\
+            num-2,num-1,num,num+1,num+2,\
+            num-2+W,num-1+W,num+W,num+1+W,num+2+W,\
+            num-2+2*W,num-1+2*W,num+2*W,num+1+2*W,num+2+2*W
+            ]).reshape(-1,)
+            # print(ind_around_)
+            # print(ind_around)
+            ind_around = np.clip(ind_around,0,len(dets_all)-1).astype(int)
+            r_features = tracks_features[ind_around]
+            t_features =  np.asarray([track.smooth_feat],dtype=np.float)
+            dists = np.maximum(0.0, cdist(t_features.reshape(1,-1), r_features, 'cosine'))
+
+            #track.around_feats
+            # if track.track_id == 166:
+            #     print("aqa"*10)
+            #     print(self.frame_id)
+            #     print(dists)
+            if np.min(dists) < 0.1:
+                _,indx= np.where(dists == np.min(dists))
+                # 确定新的box
+                # old = track.ind
+                # new = ind_around[indx]
+                # h,w= new//W+ 0.5,new% W+ 0.5
+                # wh = track.wh
+                # ltrb = np.array([w-wh[0],h-wh[1],w+wh[2],h+wh[3],0,0]).reshape(1,1,6)
+                # ltrb = np.clip(ltrb,0,len(dets_all)-1)
+                # ltrb = self.post_process(ltrb, meta)
+                # ltrb = self.merge_outputs_([ltrb])[1][0,:4]
+                # print("aqa"*10)
+                # print(ltrb)
+                # print(track.tlbr)
+                # print(matching.ious(track.tlbr.reshape(1,-1),ltrb.reshape(1,-1)))
+                # track.ind = ind_around[indx]
+                tlbr1 = None
+                # if matching.ious(track.tlbr.reshape(1,-1),dets_all[track.ind].reshape(1,-1))>0.85:
+                #     tlbr = dets_all[track.ind]
+                
+                if track.state == TrackState.Tracked:
+                    activated_starcks.append(track)
+                    track.sub_update(r_features[indx].reshape(-1,),self.frame_id,tlbr1)
+                else:
+                    refind_stracks.append(track)
+                    track.sub_update(r_features[indx].reshape(-1,),self.frame_id,tlbr1,re=True)
+                
+            
+
+            else:
+                u_track.append(i)
+        #add new end
+        for it in u_track:
+            track = r_tracked_stracks_[it]
+            if not track.state == TrackState.Lost:
+                track.mark_lost()
+                lost_stracks.append(track)
+
+        '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
+        detections = [detections[i] for i in u_detection]
+        dists = matching.iou_distance(unconfirmed, detections)
+        matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        for itracked, idet in matches:
+            unconfirmed[itracked].update(detections[idet], self.frame_id)
+            activated_starcks.append(unconfirmed[itracked])
+        for it in u_unconfirmed:
+            track = unconfirmed[it]
+            track.mark_removed()
+            removed_stracks.append(track)
+
+        """ Step 4: Init new stracks"""
+        u_detections=[]
+        for inew in u_detection:
+            track = detections[inew]
+            u_detections.append(track)
+            if track.score < self.det_thresh:
+                continue
+            track.activate(self.kalman_filter, self.frame_id)
+            activated_starcks.append(track)
+        """ Step 5: Update state"""
+        for track in self.lost_stracks:
+            if self.frame_id - track.end_frame > self.max_time_lost:
+                track.mark_removed()
+                removed_stracks.append(track)
+
+        # print('Ramained match {} s'.format(t4-t3))
+
+        self.tracked_stracks = [t for t in self.tracked_stracks if t.state == TrackState.Tracked]
+        self.tracked_stracks = joint_stracks(self.tracked_stracks, activated_starcks)
+        self.tracked_stracks = joint_stracks(self.tracked_stracks, refind_stracks)
+        self.lost_stracks = sub_stracks(self.lost_stracks, self.tracked_stracks)
+        self.lost_stracks.extend(lost_stracks)
+        self.lost_stracks = sub_stracks(self.lost_stracks, self.removed_stracks)
+        self.removed_stracks.extend(removed_stracks)
+        self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
+        # get scores of lost tracks
+        output_stracks = [track for track in self.tracked_stracks if track.is_activated]
+
+        logger.debug('===========Frame {}=========='.format(self.frame_id))
+        logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
+        logger.debug('Refind: {}'.format([track.track_id for track in refind_stracks]))
+        logger.debug('Lost: {}'.format([track.track_id for track in lost_stracks]))
+        logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
+
+        return output_stracks,u_detections
+        #return u_detections,u_detections
     def update_f5(self, im_blob, img0):
         self.frame_id += 1
         activated_starcks = []
@@ -611,8 +886,8 @@ class JDETracker(object):
         #print("len(u_detection)",len(u_detection))
         '''Deal with unconfirmed tracks'''
         detections = [detections[i] for i in u_detection]
-        dists1,strack_nums,keep_nums= matching.embedding_distance_f5(unconfirmed, detections)
-        dists = matching.iou_distance_(unconfirmed, detections,dists1,keep_nums,strack_nums)
+        dists,strack_nums,keep_nums= matching.embedding_distance_f5(unconfirmed, detections)
+        dists = matching.iou_distance_(unconfirmed, detections,dists,keep_nums,strack_nums)
         #dists = matching.fuse_motion_f5(self.kalman_filter, dists, strack_pool, detections,keep_nums,strack_nums)
         
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.4)

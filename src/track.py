@@ -99,9 +99,13 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             online_targets = tracker.update_f4(blob, img0)
         elif opt.chance=="test5":
             online_targets = tracker.update_f5(blob, img0)
+        elif opt.chance=="test6":
+            online_targets,u_detection = tracker.update_f6(blob, img0)
         online_tlwhs = []
         online_ids = []
         #online_scores = []
+        #online_targets = u_detection
+        #print(u_detection)
         for t in online_targets:
             tlwh = t.tlwh
             tid = t.track_id
@@ -200,9 +204,7 @@ if __name__ == '__main__':
                       MOT16-10
                       MOT16-11
                       MOT16-13'''
-        # seqs_str = '''MOT16-10
-        #               MOT16-11
-        #               MOT16-13'''
+        seqs_str = '''MOT16-02'''
         data_root = os.path.join(opt.data_dir, 'MOT16/train')
     if opt.test_mot16:
         seqs_str = '''MOT16-01
