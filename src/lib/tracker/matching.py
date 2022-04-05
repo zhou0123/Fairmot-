@@ -220,6 +220,8 @@ def iou_next(tracks,dets_all,tracks_features,H,W):
             ]).reshape(-1,)
         ind_around = np.clip(ind_around,0,len(dets_all)-1).astype(int)
         track.around_feats = tracks_features[ind_around]
+        tracks[ind_] = track
+
 
         num = near_track.ind
         ind_around = np.array([num-2-2*W,num-1-2*W,num-2*W,num+1-2*W,num+2-2*W,\
@@ -230,6 +232,9 @@ def iou_next(tracks,dets_all,tracks_features,H,W):
             ]).reshape(-1,)
         ind_around = np.clip(ind_around,0,len(dets_all)-1).astype(int)
         near_track.around_feats = tracks_features[ind_around]
+
+        tracks[ind2_] =near_track
+    return tracks
 
 
 
