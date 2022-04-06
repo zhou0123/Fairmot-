@@ -206,7 +206,7 @@ def iou_next(tracks,dets_all,tracks_features,H,W):
     ind2 = np.arange(len(ious_))[ind2_]  #第几个track
     ind = ind[ind2_]
 
-    for ind_,ind2_ in zip(ind,ind2):
+    for ind_,ind2_ in zip(ind2,ind):
         track = tracks[ind_]
         near_track = tracks[ind2_]
 
@@ -232,7 +232,6 @@ def iou_next(tracks,dets_all,tracks_features,H,W):
             ]).reshape(-1,)
         ind_around = np.clip(ind_around,0,len(dets_all)-1).astype(int)
         near_track.around_feats = tracks_features[ind_around]
-
         tracks[ind2_] =near_track
     return tracks
 

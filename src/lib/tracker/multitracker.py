@@ -628,12 +628,13 @@ class JDETracker(object):
 
         ''' Step 2: First association, with embedding'''
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
-        #strack_pool = matching.iou_next(strack_pool,dets_all,track_features,H,W) #背景
+        
         #print([track.ind for track in strack_pool if track.track_id == 117])
         # Predict the current location with KF
         #for strack in strack_pool:
             #strack.predict()
         STrack.multi_predict(strack_pool)
+        strack_pool = matching.iou_next(strack_pool,dets_all,track_features,H,W) #背景
 
         dists = matching.embedding_distance(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
@@ -725,21 +726,26 @@ class JDETracker(object):
                     track.sub_update(r_features[indx].reshape(-1,),self.frame_id,tlbr1,re=True)
                 continue
             #背景
-            # id_ = track.near_id
-            # if id_ is not None:
-            #     next_track=[track for track in strack_pool if track.track_id =id_ ][0]
-            #     next_feats = next_track.around_feats
-            #     dists = np.maximum(0.0, cdist(track.around_feats, next_feats, 'cosine'))
-            #     if np.sum(dists)/(dists.shape[0]*dists.shape[1]) <0.4:
+            id_ = track.near_id
+            if id_ is not None:
+                for track in strack_pool:
+                    if track.track_id ==id_:
+                        next_track = track
+                        continue
+                next_feats = next_track.around_feats
+                dists = np.maximum(0.0, cdist(track.around_feats, next_feats, 'cosine'))
+                dists = dists.reshape(-1,)
+                dists.sort()
+                if np.sum(dists[:10])/10 <0.2:
 
-            #         if track.state == TrackState.Tracked:
-            #             track.update_box(next_track.tlwh)
-            #             activated_starcks.append(track)
+                    if track.state == TrackState.Tracked:
+                        track.update_box(next_track.tlwh)
+                        activated_starcks.append(track)
                         
-            #         else:
-            #             track.update_box(next_track.tlwh,re=True)
-            #             refind_stracks.append(track)
-            #         continue
+                    else:
+                        track.update_box(next_track.tlwh,re=True)
+                        refind_stracks.append(track)
+                    continue
             
            
             u_track.append(i)
